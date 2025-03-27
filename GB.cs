@@ -9,6 +9,7 @@ namespace Brackethouse.GB
 {
 	class GB
 	{
+		Cartridge Cart;
 		CPU CPU;
 		Memory Memory;
 		PPU Graphics;
@@ -16,7 +17,8 @@ namespace Brackethouse.GB
 		Stopwatch Time = new Stopwatch();
 		public GB(string cartPath)
 		{
-			Memory = new Memory(cartPath);
+			Cart = Cartridge.FromFile(cartPath);
+			Memory = new Memory(Cart);
 			CPU = new CPU(Memory);
 			Graphics = new PPU(Memory);
 			Time.Start();

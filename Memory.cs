@@ -10,6 +10,7 @@ namespace Brackethouse.GB
 	{
 		const int MemorySize = ushort.MaxValue + 1;
 		byte[] Bytes = new byte[MemorySize];
+		Cartridge Cart;
 		const ushort ROMStart = 0x0000;
 		const ushort ROMBank1End = 0x3FFF;
 		const ushort SwitchableBank = 0x4000;
@@ -28,10 +29,9 @@ namespace Brackethouse.GB
 		ushort PreviousCPUTick = 0;
 		int DIVTimer = 0;
 		int TIMATimer = 0;
-		public Memory(string cartPath)
+		public Memory(Cartridge cart)
 		{
-			byte[] cartBytes = File.ReadAllBytes(cartPath);
-			Array.Copy(cartBytes, Bytes, cartBytes.Length);
+			Cart = cart;
 		}
 		public Byte this[int i]
 		{
@@ -40,12 +40,17 @@ namespace Brackethouse.GB
 		}
 		public byte Read(int address)
 		{
+			if (address <= SwitchableBankEnd)
+			{
+				return Cart.Read((ushort)address);
+			}
 			return Bytes[address];
 		}
 		public void Write(int address, byte value)
 		{
 			if (address <= SwitchableBankEnd)
 			{
+				Cart.Write((ushort)address, value);
 				return;
 			}
 			if (address >= VideoRAM && address < ExternalRAM)
