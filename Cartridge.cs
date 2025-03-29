@@ -45,11 +45,12 @@ namespace Brackethouse.GB
 			HuC1_RAM_BATTERY = 0xFF,
 		}
 		const ushort TypeAddress = 0x0147;
-		CartridgeType Type => (CartridgeType)Read(TypeAddress);
+		readonly CartridgeType Type;
         byte[] ROM;
 		private Cartridge(byte[] rom)
 		{
 			ROM = rom;
+			Type = (CartridgeType)Read(TypeAddress);
 		}
 		/// <summary>
 		/// Make a cartridge from a file.
@@ -61,6 +62,10 @@ namespace Brackethouse.GB
 		{
 			return new Cartridge(File.ReadAllBytes(path));
 		}
+		/// <summary>
+		/// Makes a cartridge full of zeroes
+		/// </summary>
+		/// <returns>Empty cartridge.</returns>
 		public static Cartridge Empty()
 		{
 			return new Cartridge(new byte[ushort.MaxValue + 1]);
@@ -72,6 +77,7 @@ namespace Brackethouse.GB
 		/// <returns>A byte from the cartridge.</returns>
 		public byte Read(ushort address)
 		{
+			// TODO: Handle other cartridge types.
 			return ROM[address];
 		}
 		/// <summary>
@@ -81,7 +87,23 @@ namespace Brackethouse.GB
 		/// <param name="value"></param>
 		public void Write(ushort address, byte value)
 		{
-
+			// TODO: Handle other cartridge types.
 		}
-    }
+		static public bool AddressIsCartridge(ushort address)
+		{
+			return AddressIsROM(address) || AddressIsExternalRAM(address);
+		}
+		static public bool AddressIsROM(ushort address)
+		{
+			const ushort ROMStart = 0x0000;
+			const ushort ROMBank1End = 0x3FFF;
+			return address >= ROMStart && address <= ROMBank1End;
+		}
+		static public bool AddressIsExternalRAM(ushort address)
+		{
+			const ushort ExternalRAM = 0xA000;
+			const ushort ExternalRAMEnd = 0xBFFF;
+			return address >= ExternalRAM && address <= ExternalRAMEnd;
+		}
+	}
 }
