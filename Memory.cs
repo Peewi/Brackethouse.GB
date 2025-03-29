@@ -95,6 +95,9 @@ namespace Brackethouse.GB
 				{
 					newCount = Bytes[timerMod];
 					// TODO: Do an interrupt.
+					const ushort interruptFlag = 0xff0f;
+					const int timerBit = 0b0000_0100;
+					this[interruptFlag] |= timerBit;
 				}
 				Bytes[timerCounter] = (byte)newCount;
 			}

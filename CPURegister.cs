@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace Brackethouse.GB
 {
+	/// <summary>
+	/// CPU registers, accessible with indexers.
+	/// </summary>
     class CPURegister
     {
 		/// <summary>

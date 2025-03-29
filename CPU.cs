@@ -1262,7 +1262,7 @@ namespace Brackethouse.GB
 				{
 					byte checkBit = 1;
 					checkBit <<= i;
-					if ((checkBit & interruptByte) != 0)
+					if ((checkBit & interruptByte) == checkBit)
 					{
 						Halted = false;
 						InterruptMasterEnable = false;
