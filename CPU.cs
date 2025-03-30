@@ -2094,7 +2094,7 @@ namespace Brackethouse.GB
 			byte b1 = Memory.Read(Registers[R16.SP] + 0);
 			byte b2 = Memory.Read(Registers[R16.SP] + 1);
 			Registers[reg] = (ushort)(b1 + b2 << 8);
-			Registers[reg] += 2;
+			Registers[R16.SP] += 2;
 		}
 		void Push(R16 reg)
 		{
