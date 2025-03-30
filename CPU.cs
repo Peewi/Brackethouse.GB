@@ -9,14 +9,14 @@ namespace Brackethouse.GB
 {
 	enum R8 : byte
 	{
-		A = 0,
-		F = 0 + 128,
-		B = 1,
-		C = 1 + 128,
-		D = 2,
-		E = 2 + 128,
-		H = 3,
-		L = 3 + 128,
+		A = 0 + 128,
+		F = 0,
+		B = 1 + 128,
+		C = 1,
+		D = 2 + 128,
+		E = 2,
+		H = 3 + 128,
+		L = 3,
 	}
 	enum R16 : byte
 	{
@@ -69,12 +69,15 @@ namespace Brackethouse.GB
 		readonly ushort[] InterruptTargets = [0x40, 0x48, 0x50, 0x58, 0x60];
 		const ushort InterruptFlag = 0xff0f;
 		const ushort InterruptEnableRegister = 0xffff;
+#if DEBUG
+		List<string> AddrLog = new List<string>(1000000);
+#endif
 
 		public CPU(Memory mem)
 		{
 			Memory = mem;
 			Init();
-			Console.WriteLine($"Test register result: {TestRegisters()}");
+			//Console.WriteLine($"Test register result: {TestRegisters()}");
 		}
 
 		byte Immediate8()
@@ -183,7 +186,7 @@ namespace Brackethouse.GB
 			OpCodes[0x04] = () => { Increment(R8.B); };
 			OpCodes[0x14] = () => { Increment(R8.D); };
 			OpCodes[0x24] = () => { Increment(R8.H); };
-			OpCodes[0x34] = () => { Increment(R16.HL); };
+			OpCodes[0x34] = () => { IncrementReference(R16.HL); };
 			OpCodes[0x44] = () => { Load(R8.B, R8.H); };
 			OpCodes[0x54] = () => { Load(R8.D, R8.H); };
 			OpCodes[0x64] = () => { Load(R8.H, R8.H); };
@@ -200,7 +203,7 @@ namespace Brackethouse.GB
 			OpCodes[0x05] = () => { Decrement(R8.B); };
 			OpCodes[0x15] = () => { Decrement(R8.D); };
 			OpCodes[0x25] = () => { Decrement(R8.H); };
-			OpCodes[0x35] = () => { Decrement(R16.HL); };
+			OpCodes[0x35] = () => { DecrementReference(R16.HL); };
 			OpCodes[0x45] = () => { Load(R8.B, R8.L); };
 			OpCodes[0x55] = () => { Load(R8.D, R8.L); };
 			OpCodes[0x65] = () => { Load(R8.H, R8.L); };
@@ -231,8 +234,8 @@ namespace Brackethouse.GB
 			OpCodes[0xe6] = () => { And(R8.A, Immediate8()); };
 			OpCodes[0xf6] = () => { Or(R8.A, Immediate8()); };
 			// x7
-			OpCodes[0x07] = () => { RotateLeftA(R8.A); };
-			OpCodes[0x17] = () => { RotateLeft(R8.A); };
+			OpCodes[0x07] = () => { RotateLeftCarryA(R8.A); };
+			OpCodes[0x17] = () => { RotateLeftA(R8.A); };
 			OpCodes[0x27] = () => { DecimalAdjustAccumulator(); };
 			OpCodes[0x37] = () => { SetCarryFlag(); };
 			OpCodes[0x47] = () => { Load(R8.B, R8.A); };
@@ -243,15 +246,15 @@ namespace Brackethouse.GB
 			OpCodes[0x97] = () => { Subtract(R8.A, R8.A); };
 			OpCodes[0xa7] = () => { And(R8.A, R8.A); };
 			OpCodes[0xb7] = () => { Or(R8.A, R8.A); };
-			OpCodes[0xc7] = () => { Call(0x00); };
-			OpCodes[0xd7] = () => { Call(0x10); };
-			OpCodes[0xe7] = () => { Call(0x20); };
-			OpCodes[0xf7] = () => { Call(0x30); };
+			OpCodes[0xc7] = () => { Restart(0x00); };
+			OpCodes[0xd7] = () => { Restart(0x10); };
+			OpCodes[0xe7] = () => { Restart(0x20); };
+			OpCodes[0xf7] = () => { Restart(0x30); };
 			// x8
-			OpCodes[0x08] = () => { Decrement(R8.B); };
-			OpCodes[0x18] = () => { Decrement(R8.D); };
-			OpCodes[0x28] = () => { Decrement(R8.H); };
-			OpCodes[0x38] = () => { Decrement(R16.HL); };
+			OpCodes[0x08] = () => { Loadn16SP(Immediate16()); };
+			OpCodes[0x18] = () => { JumpRelative(Immediate8()); };
+			OpCodes[0x28] = () => { JumpRelativeConditional(Immediate8(), Flags.Zero, true); };
+			OpCodes[0x38] = () => { JumpRelativeConditional(Immediate8(), Flags.Carry, true); };
 			OpCodes[0x48] = () => { Load(R8.C, R8.B); };
 			OpCodes[0x58] = () => { Load(R8.E, R8.B); };
 			OpCodes[0x68] = () => { Load(R8.L, R8.B); };
@@ -367,7 +370,7 @@ namespace Brackethouse.GB
 			OpCodes[0xee] = () => { Xor(R8.A, Immediate8()); };
 			OpCodes[0xfe] = () => { Compare(R8.A, Immediate8()); };
 			//xf
-			OpCodes[0x0f] = () => { RotateRightCarry(R8.A); };
+			OpCodes[0x0f] = () => { RotateRightCarryA(R8.A); };
 			OpCodes[0x1f] = () => { RotateRightA(R8.A); };
 			OpCodes[0x2f] = () => { Complement(R8.A); };
 			OpCodes[0x3f] = () => { ComplementCarryFlag(); };
@@ -379,10 +382,10 @@ namespace Brackethouse.GB
 			OpCodes[0x9f] = () => { SubtractCarry(R8.A, R8.A); };
 			OpCodes[0xaf] = () => { Xor(R8.A, R8.A); };
 			OpCodes[0xbf] = () => { Compare(R8.A, R8.A); };
-			OpCodes[0xcf] = () => { Call(0x08); };
-			OpCodes[0xdf] = () => { Call(0x18); };
-			OpCodes[0xef] = () => { Call(0x28); };
-			OpCodes[0xff] = () => { Call(0x38); };
+			OpCodes[0xcf] = () => { Restart(0x08); };
+			OpCodes[0xdf] = () => { Restart(0x18); };
+			OpCodes[0xef] = () => { Restart(0x28); };
+			OpCodes[0xff] = () => { Restart(0x38); };
 			//CBx0
 			CBCodes[0x00] = () => { RotateLeftCarry(R8.B); };
 			CBCodes[0x10] = () => { RotateLeft(R8.B); };
@@ -1284,6 +1287,21 @@ namespace Brackethouse.GB
 			ConditionalTicks = 0;
 			ushort address = Registers[R16.PC];
 			byte op = Memory.Read(address);
+#if DEBUG
+			AddrLog.Add(address.ToString("X4"));
+			if (AddrLog.Count == 100000)
+			{
+				File.WriteAllLines("addrlog.txt", AddrLog);
+			}
+			if (address == 0x0040)
+			{
+
+			}
+			if (address == 0x27cc)
+			{
+
+			}
+#endif
 			OpCodes[op].Invoke();
 			Registers[R16.PC] += (ushort)Math.Clamp(PCAdvance,0, 3);
 			// It's not entirely clear if the CB cycle is in addition to the CB op
@@ -1587,7 +1605,12 @@ namespace Brackethouse.GB
 			SetFlag(Flags.Subtraction, true);
 			SetFlag(Flags.HalfCarry, 0 > 0); //TODO: Figure this out
 		}
-		void Decrement(R16 addr)
+		/// <summary>
+		/// Decrement the value pointed at by the register.
+		/// Used for <c>DEC [HL]</c>
+		/// </summary>
+		/// <param name="addr">An address</param>
+		void DecrementReference(R16 addr)
 		{
 			byte val = Memory.Read(Registers[addr]);
 			val--;
@@ -1605,7 +1628,12 @@ namespace Brackethouse.GB
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, val > 0x0f); //TODO: Figure this out
 		}
-		void Increment(R16 addr)
+		/// <summary>
+		/// Increment the value pointed at by the register.
+		/// Used for <c>INC [HL]</c>
+		/// </summary>
+		/// <param name="addr">An address</param>
+		void IncrementReference(R16 addr)
 		{
 			byte val = Memory.Read(Registers[addr]);
 			val++;
@@ -1666,11 +1694,11 @@ namespace Brackethouse.GB
 			SetFlag(Flags.Carry, val > 0xffff);
 			Registers[R16.HL] = (ushort)val;
 		}
-		void Increment16(R16 reg)
+		void Increment(R16 reg)
 		{
 			Registers[reg]++;
 		}
-		void Decrement16(R16 reg)
+		void Decrement(R16 reg)
 		{
 			Registers[reg]--;
 		}
@@ -1865,6 +1893,7 @@ namespace Brackethouse.GB
 		{
 			RotateRight(reg);
 			SetFlag(Flags.Zero, false);
+			// TODO: Double check flags
 		}
 		void RotateRightCarry(R8 reg)
 		{
@@ -1892,6 +1921,7 @@ namespace Brackethouse.GB
 		{
 			RotateRightCarry(reg);
 			SetFlag(Flags.Zero, false);
+			// TODO: Double check flags
 		}
 		void ShiftLeftArithmetic(R8 reg)
 		{
@@ -1962,7 +1992,7 @@ namespace Brackethouse.GB
 		void Swap(R8 reg)
 		{
 			byte oldVal = GetR8Byte(reg);
-			byte newVal = (byte)(oldVal << 4 + oldVal >>> 4);
+			byte newVal = (byte)((oldVal << 4) + (oldVal >>> 4));
 			SetFlag(Flags.Zero, newVal == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
@@ -1972,7 +2002,7 @@ namespace Brackethouse.GB
 		void Swap(R16 address)
 		{
 			byte oldVal = Memory.Read(Registers[address]);
-			byte newVal = (byte)(oldVal << 4 + oldVal >>> 4);
+			byte newVal = (byte)((oldVal << 4) + (oldVal >>> 4));
 			SetFlag(Flags.Zero, newVal == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
@@ -1981,11 +2011,21 @@ namespace Brackethouse.GB
 		}
 		#endregion
 		#region Jumps and subroutine instructions
+		/// <summary>
+		/// CALL instruction
+		/// </summary>
+		/// <param name="address"></param>
 		void Call(ushort address)
 		{
-			Push((ushort)(Registers[R16.PC] + 1));
+			Push((ushort)(Registers[R16.PC] + 3));
 			Jump(address);
 		}
+		/// <summary>
+		/// Call instruction with condition
+		/// </summary>
+		/// <param name="address"></param>
+		/// <param name="flag"></param>
+		/// <param name="set"></param>
 		void CallConditional(ushort address, Flags flag, bool set)
 		{
 			if (GetFlag(flag) == set)
@@ -1993,6 +2033,15 @@ namespace Brackethouse.GB
 				ConditionalTicks = 12;
 				Call(address);
 			}
+		}
+		/// <summary>
+		/// RST instruction
+		/// </summary>
+		/// <param name="address"></param>
+		void Restart(ushort address)
+		{
+			Push((ushort)(Registers[R16.PC] + 1));
+			Jump(address);
 		}
 		void Jump(R16 reg)
 		{
@@ -2031,12 +2080,13 @@ namespace Brackethouse.GB
 			if (GetFlag(flag) == set)
 			{
 				ConditionalTicks = 12;
-				Pop(R16.PC);
+				Return();
 			}
 		}
 		void Return()
 		{
 			Pop(R16.PC);
+			PCAdvance = 0;
 		}
 		void ReturnInterrupt()
 		{
@@ -2093,7 +2143,7 @@ namespace Brackethouse.GB
 			// I hope I did this correctly.
 			byte b1 = Memory.Read(Registers[R16.SP] + 0);
 			byte b2 = Memory.Read(Registers[R16.SP] + 1);
-			Registers[reg] = (ushort)(b1 + b2 << 8);
+			Registers[reg] = (ushort)(b1 + (b2 << 8));
 			Registers[R16.SP] += 2;
 		}
 		void Push(R16 reg)
