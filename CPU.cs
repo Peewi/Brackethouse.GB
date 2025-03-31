@@ -49,7 +49,14 @@ namespace Brackethouse.GB
 		byte[] CBCodeCycles = new byte[256];
 		Memory Memory;
 		Dictionary<R16, ushort> Registers = new Dictionary<R16, ushort>();
+		/// <summary>
+		/// Whether interrupts can be serviced
+		/// </summary>
 		bool InterruptMasterEnable = false;
+		/// <summary>
+		/// IME delay
+		/// </summary>
+		bool InterruptMasterEnableQueue = false;
 		bool Stopped = false;
 		bool Halted = false;
 		/// <summary>
@@ -1283,6 +1290,8 @@ namespace Brackethouse.GB
 				TState += 4;
 				return;
 			}
+			InterruptMasterEnable |= InterruptMasterEnableQueue;
+			InterruptMasterEnableQueue = false;
 			PCAdvance = 1;
 			ConditionalTicks = 0;
 			ushort address = Registers[R16.PC];
@@ -2088,9 +2097,12 @@ namespace Brackethouse.GB
 			Pop(R16.PC);
 			PCAdvance = 0;
 		}
+		/// <summary>
+		/// IMMEDIATELY set IME, then return.
+		/// </summary>
 		void ReturnInterrupt()
 		{
-			EnableInterrupt();
+			InterruptMasterEnable = true;
 			Return();
 		}
 		#endregion
@@ -2170,7 +2182,7 @@ namespace Brackethouse.GB
 		}
 		void EnableInterrupt()
 		{
-			InterruptMasterEnable = true;
+			InterruptMasterEnableQueue = true;
 		}
 		void Halt()
 		{
