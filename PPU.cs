@@ -39,6 +39,8 @@ namespace Brackethouse.GB
 		const int MaxObjectsPerLine = 10;
 		byte[] LineObjects = new byte[MaxObjectsPerLine];
 
+		Display Display = new DisplayFile();
+
 		public PPU(Memory mem)
 		{
 			Memory = mem;
@@ -57,16 +59,19 @@ namespace Brackethouse.GB
 
 			Modes prevMode = Mode;
 			//TODO: Do actual processing and not just counting.
-			if (LineTicks == 0)
+			if (PixelY < Height)
 			{
-				// I'm just gonna do the OAM scan in one go.
-				OAMScan();
-				Mode = Modes.OAMScan;
+				if (LineTicks == 0)
+				{
+					// I'm just gonna do the OAM scan in one go.
+					OAMScan();
+					Mode = Modes.OAMScan;
 
-			}
-			else if (LineTicks == 80)
-			{
-				Mode = Modes.DrawingPixels;
+				}
+				else if (LineTicks == 80)
+				{
+					Mode = Modes.DrawingPixels;
+				}
 			}
 			if (Mode == Modes.DrawingPixels)
 			{
@@ -90,6 +95,7 @@ namespace Brackethouse.GB
 				if (prevMode != Modes.VBlank && Mode == Modes.VBlank)
 				{
 					FlagVBlankInterrupt();
+					Display.Output();
 				}
 			}
 		}
@@ -133,7 +139,8 @@ namespace Brackethouse.GB
 			byte tilePY = tilemapPosY;
 			tilePY %= tilesizePx;
 
-			ReadTilePixel(bgTileMap, bgTileSrc, tileNumber, tilePX, tilePY);
+			byte pxVal = ReadTilePixel(bgTileMap, bgTileSrc, tileNumber, tilePX, tilePY);
+			Display.SetPixel(PixelX, PixelY, pxVal);
 		}
 		byte ReadTilePixel(bool Altmap, bool altTiles, ushort mapTileIndex, byte x, byte y)
 		{
@@ -151,7 +158,8 @@ namespace Brackethouse.GB
 			{
 				tileStart = (ushort)(0x9000 + (sbyte)tileIndex * 16);
 			}
-			byte bitMask = (byte)(0x01 << x);
+			x = (byte)(7 - x);
+			byte bitMask = (byte)(1 << x);
 			ushort byte1 = (ushort)(tileStart + y * 2);
 			ushort byte2 = (ushort)(byte1 + 1);
 			byte data = (byte)((Memory[byte1] & bitMask) >> x);
@@ -188,6 +196,31 @@ namespace Brackethouse.GB
 			const ushort interruptFlag = 0xff0f;
 			const int vBlankBit = 0b0000_0001;
 			Memory[interruptFlag] |= vBlankBit;
+		}
+		public void DumpTiles()
+		{
+			int tileSize = 8;
+			for (int y = 0; y < 128; y++)
+			{
+				for (int x = 0; x < 128; x++)
+				{
+					int tileX = x / tileSize;
+					int tileY = y / tileSize;
+					int tilePX = x % tileSize;
+					int tilePY = y % tileSize;
+
+					ushort tileStart = (ushort)(0x8000 + tileY * 16 * 16 + tileX * 16);
+					tilePX = 7 - tilePX;
+					byte bitMask = (byte)(1 << tilePX);
+					ushort byte1 = (ushort)(tileStart + tilePY * 2);
+					ushort byte2 = (ushort)(byte1 + 1);
+					byte data = (byte)((Memory[byte1] & bitMask) >> tilePX);
+					data |= (byte)(((Memory[byte2] & bitMask) >> tilePX) << 1);
+
+					Display.SetPixel((byte)x, (byte)y, data);
+				}
+			}
+			Display.Output();
 		}
 		public static bool AddressIsVRAM(ushort address)
 		{
