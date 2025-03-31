@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SDL3;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -15,26 +16,27 @@ namespace Brackethouse.GB
         public abstract void SetPixel(byte x, byte y, byte value);
         public abstract void Output();
     }
-    /// <summary>
-    /// A simple display that outputs to a file.
-    /// </summary>
-    class DisplayFile : Display
+    class SDLDisplay : Display
     {
-        Bitmap pic = new Bitmap(160, 144);
-        Color[] Colors = [Color.White, Color.LightGray, Color.DarkGray, Color.Black];
-
-        public override void SetPixel(byte x, byte y, byte value)
+        uint FrameCount = 0;
+        public SDLDisplay(nint renderer)
         {
-            pic.SetPixel(x, y, Colors[value]);
-			if (value != 0)
-			{
-
-			}
-		}
-
-        public override void Output()
-        {
-            pic.Save("test.bmp");
+            Renderer = renderer;
         }
-    }
+        byte[] Shades = [0xff, 0xd3, 0xa9, 0x00, 0xbb];
+        nint Renderer;
+		public override void SetPixel(byte x, byte y, byte value)
+		{
+			SDL.SetRenderDrawColor(Renderer, Shades[value], Shades[value], Shades[value], 255);
+			SDL.RenderPoint(Renderer, x, y);
+		}
+		public override void Output()
+		{
+#if DEBUG
+            SDL.SetRenderDrawColor(Renderer, Shades[4], Shades[4], Shades[4], 255);
+            SDL.RenderDebugText(Renderer, 1, 1, $"Frame {FrameCount++}");
+#endif
+            SDL.RenderPresent(Renderer);
+		}
+	}
 }

@@ -39,11 +39,12 @@ namespace Brackethouse.GB
 		const int MaxObjectsPerLine = 10;
 		byte[] LineObjects = new byte[MaxObjectsPerLine];
 
-		Display Display = new DisplayFile();
+		Display Display;
 
-		public PPU(Memory mem)
+		public PPU(Memory mem, Display dsp)
 		{
 			Memory = mem;
+			Display = dsp;
 		}
 		public void Step(ushort tick)
 		{
@@ -95,7 +96,7 @@ namespace Brackethouse.GB
 				if (prevMode != Modes.VBlank && Mode == Modes.VBlank)
 				{
 					FlagVBlankInterrupt();
-					Display.Output();
+					//Display.Output();
 				}
 			}
 		}
