@@ -11,6 +11,8 @@ namespace Brackethouse.GB
 		const int MemorySize = ushort.MaxValue + 1;
 		byte[] Bytes = new byte[MemorySize];
 		Cartridge Cart;
+		PPU Graphics;
+		IORegisters IO;
 		const ushort ROMStart = 0x0000;
 		const ushort ROMBank1End = 0x3FFF;
 		const ushort SwitchableBank = 0x4000;
@@ -23,86 +25,78 @@ namespace Brackethouse.GB
 		const ushort ObjectAttributeMemory = 0xFE00;
 		const ushort ObjectAttributeMemoryEnd = 0xFE9F;
 		const ushort NotUsable = 0xFEA0;
-		const ushort IORegisters = 0xFF00;
+		const ushort IORegistersStart = 0xFF00;
 		const ushort HighRAM = 0xFF80;
 		const ushort InterruptEnableRegister = 0xFFFF;
 		ushort PreviousCPUTick = 0;
 		int DIVTimer = 0;
 		int TIMATimer = 0;
-		public Memory(Cartridge cart)
+		public Memory(Cartridge cart, PPU gfx, IORegisters io)
 		{
 			Cart = cart;
+			Graphics = gfx;
+			IO = io;
 		}
 		public Byte this[int i]
 		{
 			get => Read(i);
 			set => Write(i, value);
 		}
+		/// <summary>
+		/// Read from memory. For use by CPU.
+		/// </summary>
+		/// <param name="address">Address to read</param>
+		/// <returns>Byte that was read.</returns>
 		public byte Read(int address)
 		{
+			ushort uadr = (ushort)address;
 			if (address <= SwitchableBankEnd)
 			{
-				return Cart.Read((ushort)address);
+				return Cart.Read(uadr);
+			}
+			if (PPU.AddressIsVRAM(uadr))
+			{
+				return Graphics.CPUReadVRAM(uadr);
+			}
+			if (PPU.AddressIsOAM(uadr))
+			{
+				return Graphics.CPUReadOAM(uadr);
+			}
+			if (IORegisters.AddressIsIO(uadr))
+			{
+				return IO[uadr];
 			}
 			return Bytes[address];
 		}
+		/// <summary>
+		/// Write to memory. For use by CPU.
+		/// </summary>
+		/// <param name="address">Address to write to.</param>
+		/// <param name="value">Byte to write.</param>
 		public void Write(int address, byte value)
 		{
+			ushort uadr = (ushort)address;
 			if (address <= SwitchableBankEnd)
 			{
-				Cart.Write((ushort)address, value);
+				Cart.Write(uadr, value);
 				return;
 			}
-			if (address >= VideoRAM && address < ExternalRAM)
+			if (PPU.AddressIsVRAM(uadr))
 			{
-
+				Graphics.CPUWriteVRAM(uadr, value);
+				return;
 			}
-			if (address >= IORegisters)
+			if (PPU.AddressIsOAM(uadr))
 			{
-
+				Graphics.CPUWriteOAM(uadr, value);
+				return;
+			}
+			if (IORegisters.AddressIsIO(uadr))
+			{
+				IO.CPUWrite(uadr, value);
+				return;
 			}
 			Bytes[address] = value;
-		}
-		public void StepTimerRegisters(ushort tick)
-		{
-			// https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
-			int ticks = PreviousCPUTick - tick;
-			if (ticks < 0)
-			{
-				ticks += ushort.MaxValue;
-			}
-
-			const ushort divider = 0xff04;
-			const ushort timerCounter = 0xff05;
-			const ushort timerMod = 0xff06;
-			const ushort timerControl = 0xff07;
-			bool TACEnable = (Bytes[timerControl] & 0b00_00_01_00) != 0;
-			byte TACClockSelect = (byte)(Bytes[timerControl] & 0b00_00_00_11);
-			// Each M-Cycle is 4 ticks
-			int[] ticksPerInc = [256 * 4, 4 * 4, 16 * 4, 64 * 4];
-			// DIV always counts up
-			DIVTimer += ticks;
-			int newDiv = Bytes[divider] + DIVTimer / ticksPerInc[3];
-			DIVTimer %= ticksPerInc[3];
-			Bytes[divider] = (byte)newDiv;
-			// TIMA only counts up when enabled.
-			if (TACEnable)
-			{
-				TIMATimer += ticks;
-				int newCount = Bytes[timerCounter] + TIMATimer / ticksPerInc[TACClockSelect];
-				TIMATimer %= ticksPerInc[TACClockSelect];
-				if (newCount > 0xff)
-				{
-					newCount = Bytes[timerMod];
-					// TODO: Do an interrupt.
-					const ushort interruptFlag = 0xff0f;
-					const int timerBit = 0b0000_0100;
-					this[interruptFlag] |= timerBit;
-				}
-				Bytes[timerCounter] = (byte)newCount;
-			}
-
-			PreviousCPUTick = tick;
 		}
 	}
 }

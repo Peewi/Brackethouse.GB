@@ -14,22 +14,24 @@ namespace Brackethouse.GB
 		CPU CPU;
 		Memory Memory;
 		PPU Graphics;
+		IORegisters IO;
 		int Frame = -1;
 		Stopwatch Time = new Stopwatch();
 		public GB(string cartPath, nint renderer)
 		{
 			Cart = Cartridge.FromFile(cartPath);
 			Display = new SDLDisplay(renderer);
-			Memory = new Memory(Cart);
+			IO = new IORegisters();
+			Graphics = new PPU(IO, Display);
+			Memory = new Memory(Cart, Graphics, IO);
 			CPU = new CPU(Memory);
-			Graphics = new PPU(Memory, Display);
 			Time.Start();
 		}
 		public void Step()
 		{
 			CPU.Step();
 			Graphics.Step(CPU.TState);
-			Memory.StepTimerRegisters(CPU.TState);
+			IO.StepTimerRegisters(CPU.TState);
 			if (Frame != Graphics.Frame)
 			{
 				Frame = Graphics.Frame;
