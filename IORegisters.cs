@@ -11,6 +11,12 @@ namespace Brackethouse.GB
 	{
 		const ushort IORegistersStart = 0xFF00;
 		const ushort IORegistersEnd = 0xFF7F;
+
+		const ushort DividerAddress = 0xff04;
+		const ushort TimerCounterAddress = 0xff05;
+		const ushort TimerModAddress = 0xff06;
+		const ushort TimerControlAddress = 0xff07;
+
 		byte[] IOMem = new byte[0x80];
 		ushort PreviousCPUTick = 0;
 		int DIVTimer = 0;
@@ -22,6 +28,13 @@ namespace Brackethouse.GB
 		}
 		public void CPUWrite(int address, byte value)
 		{
+			if (address == DividerAddress)
+			{
+				// https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff04--div-divider-register
+				// Writing any value to this register resets it to $00
+				this[DividerAddress] = 0;
+				return;
+			}
 			if (address == PPU.LYAddress)
 			{
 				// LCD Y Coordinate is read only.
@@ -47,34 +60,30 @@ namespace Brackethouse.GB
 				ticks += ushort.MaxValue;
 			}
 
-			const ushort divider = 0xff04;
-			const ushort timerCounter = 0xff05;
-			const ushort timerMod = 0xff06;
-			const ushort timerControl = 0xff07;
-			bool TACEnable = (this[timerControl] & 0b00_00_01_00) != 0;
-			byte TACClockSelect = (byte)(this[timerControl] & 0b00_00_00_11);
+			bool TACEnable = (this[TimerControlAddress] & 0b00_00_01_00) != 0;
+			byte TACClockSelect = (byte)(this[TimerControlAddress] & 0b00_00_00_11);
 			// Each M-Cycle is 4 ticks
 			int[] ticksPerInc = [256 * 4, 4 * 4, 16 * 4, 64 * 4];
 			// DIV always counts up
 			DIVTimer += ticks;
-			int newDiv = this[divider] + DIVTimer / ticksPerInc[3];
+			int newDiv = this[DividerAddress] + DIVTimer / ticksPerInc[3];
 			DIVTimer %= ticksPerInc[3];
-			this[divider] = (byte)newDiv;
+			this[DividerAddress] = (byte)newDiv;
 			// TIMA only counts up when enabled.
 			if (TACEnable)
 			{
 				TIMATimer += ticks;
-				int newCount = this[timerCounter] + TIMATimer / ticksPerInc[TACClockSelect];
+				int newCount = this[TimerCounterAddress] + TIMATimer / ticksPerInc[TACClockSelect];
 				TIMATimer %= ticksPerInc[TACClockSelect];
 				if (newCount > 0xff)
 				{
-					newCount = this[timerMod];
+					newCount = this[TimerModAddress];
 					// Do an interrupt.
 					const ushort interruptFlag = 0xff0f;
 					const int timerBit = 0b0000_0100;
 					this[interruptFlag] |= timerBit;
 				}
-				this[timerCounter] = (byte)newCount;
+				this[TimerCounterAddress] = (byte)newCount;
 			}
 
 			PreviousCPUTick = tick;
