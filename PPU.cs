@@ -58,6 +58,8 @@ namespace Brackethouse.GB
 				PreviousCPUTick++;
 				Dot();
 			}
+			UpdateLCDStatus();
+			IO[LYAddress] = PixelY;
 		}
 		void Dot()
 		{
@@ -96,14 +98,12 @@ namespace Brackethouse.GB
 				PixelY++;
 				Frame += PixelY / ScanLines;
 				PixelY %= ScanLines;
-				IO[LYAddress] = PixelY;
 				Mode = PixelY >= Height ? Modes.VBlank : Mode;
 				if (prevMode != Modes.VBlank && Mode == Modes.VBlank)
 				{
 					FlagVBlankInterrupt();
 				}
 			}
-			UpdateLCDStatus();
 		}
 
 		private void UpdateLCDStatus()
