@@ -94,9 +94,28 @@ namespace Brackethouse.GB
 			if (IORegisters.AddressIsIO(uadr))
 			{
 				IO.CPUWrite(uadr, value);
+				//
+				if (address == IORegisters.OAMDMAAddress)
+				{
+					OAM_DMA(value);
+				}
 				return;
 			}
 			Bytes[address] = value;
+		}
+		/// <summary>
+		/// https://gbdev.io/pandocs/OAM_DMA_Transfer.html
+		/// On real hardware this takes 160 M-cycles. Here I'm cheating and doing it instantly.
+		/// </summary>
+		/// <param name="value">Byte written to OAM DMA register</param>
+		void OAM_DMA(byte value)
+		{
+			ushort DMABaseAddr = (ushort)(value << 8);
+			for (int i = 0; i < PPU.OAMSize; i++)
+			{
+				int readAddr = DMABaseAddr + i;
+				Graphics.DMAWriteOAM(i, this[readAddr]);
+			}
 		}
 	}
 }

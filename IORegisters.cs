@@ -16,6 +16,7 @@ namespace Brackethouse.GB
 		const ushort TimerCounterAddress = 0xff05;
 		const ushort TimerModAddress = 0xff06;
 		const ushort TimerControlAddress = 0xff07;
+		public const ushort OAMDMAAddress = 0xff46;
 
 		byte[] IOMem = new byte[0x80];
 		ushort PreviousCPUTick = 0;

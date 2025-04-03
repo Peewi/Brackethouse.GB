@@ -36,8 +36,10 @@ namespace Brackethouse.GB
 		public const ushort LYCompareAddress = 0xff45;
 		int LineTicks = 0;
 		ushort PreviousCPUTick = 0;
-		byte[] VRAM = new byte[0x2000];
-		byte[] OAM = new byte[0xa0];
+		public const int VRAMSize = 0x2000;
+		byte[] VRAM = new byte[VRAMSize];
+		public const int OAMSize = 0xa0;
+		byte[] OAM = new byte[OAMSize];
 		bool LCDEnable => (0b1000_0000 & IO[LCDCAddress]) != 0;
 		public int Frame { get; private set; } = 0;
 
@@ -311,6 +313,15 @@ namespace Brackethouse.GB
 				return;
 			}
 			OAM[address - ObjectAttributeMemoryStart] = value;
+		}
+		/// <summary>
+		/// Used for DMA writing to OAM.
+		/// </summary>
+		/// <param name="index">Index to the OAM array. NOT a memory address.</param>
+		/// <param name="value">Byte to write.</param>
+		public void DMAWriteOAM(int index, byte value)
+		{
+			OAM[index] = value;
 		}
 		public static bool AddressIsVRAM(ushort address)
 		{
