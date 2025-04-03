@@ -26,6 +26,54 @@ namespace Brackethouse.GB
 			get => IOMem[i - IORegistersStart];
 			set => IOMem[i - IORegistersStart] = value;
 		}
+
+		public IORegisters()
+		{
+			// https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers
+			// Lets try setting all these to the DMG values
+			this[0xFF00] = 0xCF;
+			this[0xFF01] = 0x00;
+			this[0xFF02] = 0x7E;
+			this[0xFF04] = 0xAB;
+			this[0xFF05] = 0x00;
+			this[0xFF06] = 0x00;
+			this[0xFF07] = 0xF8;
+			this[0xFF0F] = 0xE1;
+			this[0xFF10] = 0x80;
+			this[0xFF11] = 0xBF;
+			this[0xFF12] = 0xF3;
+			this[0xFF13] = 0xFF;
+			this[0xFF14] = 0xBF;
+			this[0xFF16] = 0x3F;
+			this[0xFF17] = 0x00;
+			this[0xFF18] = 0xFF;
+			this[0xFF19] = 0xBF;
+			this[0xFF1A] = 0x7F;
+			this[0xFF1B] = 0xFF;
+			this[0xFF1C] = 0x9F;
+			this[0xFF1D] = 0xFF;
+			this[0xFF1E] = 0xBF;
+			this[0xFF20] = 0xFF;
+			this[0xFF21] = 0x00;
+			this[0xFF22] = 0x00;
+			this[0xFF23] = 0xBF;
+			this[0xFF24] = 0x77;
+			this[0xFF25] = 0xF3;
+			this[0xFF26] = 0xF1;
+			this[0xFF40] = 0x91;
+			this[0xFF41] = 0x85;
+			this[0xFF42] = 0x00;
+			this[0xFF43] = 0x00;
+			this[0xFF44] = 0x00;
+			this[0xFF45] = 0x00;
+			this[0xFF46] = 0xFF;
+			this[0xFF47] = 0xFC;
+			this[0xFF48] = 0x00;
+			this[0xFF49] = 0x00;
+			this[0xFF4A] = 0x00;
+			this[0xFF4B] = 0x00;
+		}
+
 		public void CPUWrite(int address, byte value)
 		{
 			if (address == DividerAddress)
@@ -54,7 +102,7 @@ namespace Brackethouse.GB
 		public void StepTimerRegisters(ushort tick)
 		{
 			// https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
-			int ticks = PreviousCPUTick - tick;
+			int ticks = tick - PreviousCPUTick;
 			if (ticks < 0)
 			{
 				ticks += ushort.MaxValue;
