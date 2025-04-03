@@ -38,6 +38,7 @@ namespace Brackethouse.GB
 		ushort PreviousCPUTick = 0;
 		byte[] VRAM = new byte[0x2000];
 		byte[] OAM = new byte[0xa0];
+		bool LCDEnable => (0b1000_0000 & IO[LCDCAddress]) != 0;
 		public int Frame { get; private set; } = 0;
 
 		byte LineObjectCount = 0;
@@ -246,7 +247,7 @@ namespace Brackethouse.GB
 		/// <returns>Value at given address, or 0xff if the PPU is currently drawing pixels</returns>
 		public byte CPUReadVRAM(int address)
 		{
-			if (Mode == Modes.DrawingPixels)
+			if (Mode == Modes.DrawingPixels && LCDEnable)
 			{
 				return 0xff;
 			}
@@ -269,7 +270,7 @@ namespace Brackethouse.GB
 		/// <param name="value">Value to write.</param>
 		public void CPUWriteVRAM(int address, byte value)
 		{
-			if (Mode == Modes.DrawingPixels)
+			if (Mode == Modes.DrawingPixels && LCDEnable)
 			{
 				return;
 			}
@@ -282,7 +283,7 @@ namespace Brackethouse.GB
 		/// <returns>Value at given address, or 0xff if the PPU is currently drawing pixels</returns>
 		public byte CPUReadOAM(int address)
 		{
-			if (Mode == Modes.OAMScan || Mode == Modes.DrawingPixels)
+			if ((Mode == Modes.OAMScan || Mode == Modes.DrawingPixels) && LCDEnable)
 			{
 				return 0xff;
 			}
@@ -305,7 +306,7 @@ namespace Brackethouse.GB
 		/// <param name="value">Value to write.</param>
 		public void CPUWriteOAM(int address, byte value)
 		{
-			if (Mode == Modes.OAMScan || Mode == Modes.DrawingPixels)
+			if ((Mode == Modes.OAMScan || Mode == Modes.DrawingPixels) && LCDEnable)
 			{
 				return;
 			}
