@@ -56,6 +56,14 @@ namespace Brackethouse.GB
 		}
 		public void Step(ushort tick)
 		{
+			if (!LCDEnable)
+			{
+				LineTicks = 0;
+				PixelX = 0;
+				PixelY = 0;
+				Mode = Modes.HBlank;
+				PreviousCPUTick = tick;
+			}
 			while (tick != PreviousCPUTick)
 			{
 				PreviousCPUTick++;
@@ -173,10 +181,10 @@ namespace Brackethouse.GB
 			}
 			tAddr += mapTileIndex;
 			byte tileIndex = SelfReadVRAM(tAddr);
-			ushort tileStart = (ushort)(0x8000 + tileIndex * 16);
+			ushort tileStart = (ushort)(0x9000 + (sbyte)tileIndex * 16);
 			if (altTiles)
 			{
-				tileStart = (ushort)(0x9000 + (sbyte)tileIndex * 16);
+				tileStart = (ushort)(0x8000 + tileIndex * 16);
 			}
 			x = (byte)(7 - x);
 			byte bitMask = (byte)(1 << x);
