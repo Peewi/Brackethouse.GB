@@ -15,10 +15,19 @@ namespace Brackethouse.GB
     {
         public abstract void SetPixel(byte x, byte y, byte value);
         public abstract void Output();
+        public const int DisplayPixels = 160 * 144;
     }
     class SDLDisplay : Display
-    {
-        uint FrameCount = 0;
+	{
+		SDL.FPoint[][] PxCoords =
+			[
+			new SDL.FPoint[DisplayPixels],
+			new SDL.FPoint[DisplayPixels],
+			new SDL.FPoint[DisplayPixels],
+			new SDL.FPoint[DisplayPixels],
+			];
+		int[] PxCounts = new int[4];
+		uint FrameCount = 0;
         public SDLDisplay(nint renderer)
         {
             Renderer = renderer;
@@ -27,11 +36,21 @@ namespace Brackethouse.GB
         nint Renderer;
 		public override void SetPixel(byte x, byte y, byte value)
 		{
-			SDL.SetRenderDrawColor(Renderer, Shades[value], Shades[value], Shades[value], 255);
-			SDL.RenderPoint(Renderer, x, y);
+            PxCoords[value][PxCounts[value] % DisplayPixels] = new SDL.FPoint()
+                {
+                    X = x,
+                    Y = y,
+                };
+            PxCounts[value]++;
 		}
 		public override void Output()
 		{
+            for (int i = 0; i < 4; i++)
+			{
+				SDL.SetRenderDrawColor(Renderer, Shades[i], Shades[i], Shades[i], 255);
+                SDL.RenderPoints(Renderer, PxCoords[i], PxCounts[i]);
+                PxCounts[i] = 0;
+			}
 #if DEBUG
             SDL.SetRenderDrawColor(Renderer, Shades[4], Shades[4], Shades[4], 255);
             SDL.RenderDebugText(Renderer, 1, 1, $"Frame {FrameCount++}");
