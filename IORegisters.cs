@@ -91,16 +91,6 @@ namespace Brackethouse.GB
 				this[DividerAddress] = 0;
 				return;
 			}
-			if (address == PPU.LYAddress)
-			{
-				// LCD Y Coordinate is read only.
-				return;
-			}
-			if (address == PPU.LCDStatusAddress)
-			{
-				// The lower 3 bits of LCD status are read only.
-				value &= 0b1111_1000;
-			}
 			this[address] = value;
 		}
 		public static bool AddressIsIO(ushort address)
