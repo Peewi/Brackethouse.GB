@@ -22,6 +22,13 @@ namespace Brackethouse.GB
 		ushort PreviousCPUTick = 0;
 		int DIVTimer = 0;
 		int TIMATimer = 0;
+		/// <summary>
+		/// How many ticks before incrementing timer register.
+		/// Each value is a possible setting.
+		/// </summary>
+		/// <remarks>Values are taken from https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff07--tac-timer-control
+		/// and multiplied by 4 to convert from M-cycles to T-cycles.</remarks>
+		static readonly int[] TicksPerInc = [256 * 4, 4 * 4, 16 * 4, 64 * 4];
 		public byte this[int i]
 		{
 			get => IOMem[i - IORegistersStart];
@@ -111,19 +118,17 @@ namespace Brackethouse.GB
 
 			bool TACEnable = (this[TimerControlAddress] & 0b00_00_01_00) != 0;
 			byte TACClockSelect = (byte)(this[TimerControlAddress] & 0b00_00_00_11);
-			// Each M-Cycle is 4 ticks
-			int[] ticksPerInc = [256 * 4, 4 * 4, 16 * 4, 64 * 4];
 			// DIV always counts up
 			DIVTimer += ticks;
-			int newDiv = this[DividerAddress] + DIVTimer / ticksPerInc[3];
-			DIVTimer %= ticksPerInc[3];
+			int newDiv = this[DividerAddress] + DIVTimer / TicksPerInc[3];
+			DIVTimer %= TicksPerInc[3];
 			this[DividerAddress] = (byte)newDiv;
 			// TIMA only counts up when enabled.
 			if (TACEnable)
 			{
 				TIMATimer += ticks;
-				int newCount = this[TimerCounterAddress] + TIMATimer / ticksPerInc[TACClockSelect];
-				TIMATimer %= ticksPerInc[TACClockSelect];
+				int newCount = this[TimerCounterAddress] + TIMATimer / TicksPerInc[TACClockSelect];
+				TIMATimer %= TicksPerInc[TACClockSelect];
 				if (newCount > 0xff)
 				{
 					newCount = this[TimerModAddress];
