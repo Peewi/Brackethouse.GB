@@ -1192,15 +1192,6 @@ namespace Brackethouse.GB
 		byte GetR8Byte(R8 register)
 		{
 			return Registers[register];
-			// R8 enum upper nibble indicates a register,and upper
-			// nibble indicates how far to bitshift it to get the desired byte.
-			// (0 or the 128 bit, which gets shifted to 8).
-			const byte lowerMask = 0x0f;
-			const byte upperMask = 0xf0;
-			R16 reg = (R16)(lowerMask & (byte)register);
-			byte shiftAmount = (byte)((upperMask & (byte)register) >> 4);
-			ushort r16 = Registers[reg];
-			return (byte)(r16 >> shiftAmount);
 		}
 		void SetR8Byte(R8 register, byte value)
 		{
