@@ -23,7 +23,7 @@ namespace Brackethouse.GB
 			Cart = Cartridge.FromFile(cartPath);
 			Display = new SDLDisplay(renderer);
 			IO = new IORegisters();
-			Input = new Joypad(IO);
+			Input = new SDLJoypad(IO);
 			Graphics = new PPU(IO, Display);
 			Memory = new Memory(Cart, Graphics, IO);
 			CPU = new CPU(Memory);
@@ -32,6 +32,7 @@ namespace Brackethouse.GB
 		public void Step()
 		{
 			Frame++;
+			Input.FrameStep();
 			while (Frame == Graphics.Frame)
 			{
 				CPU.Step();

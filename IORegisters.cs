@@ -15,6 +15,7 @@ namespace Brackethouse.GB
 		const ushort DividerAddress = 0xff04;
 		const ushort TimerCounterAddress = 0xff05;
 		const ushort TimerModAddress = 0xff06;
+		public const ushort InterruptFlagAddress = 0xff0f;
 		const ushort TimerControlAddress = 0xff07;
 		public const ushort OAMDMAAddress = 0xff46;
 
