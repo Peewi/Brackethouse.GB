@@ -40,15 +40,15 @@ namespace Brackethouse.GB
 		/// <summary>
 		/// Delegates for executing CPU operations.
 		/// </summary>
-		Operation[] OpCodes = new Operation[256];
+		readonly Operation[] OpCodes = new Operation[256];
 		/// <summary>
 		/// Delegates for executing 0xCB prefixed CPU operations.
 		/// </summary>
-		Operation[] CBCodes = new Operation[256];
-		byte[] OpCodeCycles = new byte[256];
-		byte[] CBCodeCycles = new byte[256];
-		Memory Memory;
-		Dictionary<R16, ushort> Registers = new Dictionary<R16, ushort>();
+		readonly Operation[] CBCodes = new Operation[256];
+		readonly byte[] OpCodeCycles = new byte[256];
+		readonly byte[] CBCodeCycles = new byte[256];
+		readonly Memory Memory;
+		readonly CPURegister Registers = new();
 		/// <summary>
 		/// Whether interrupts can be serviced
 		/// </summary>
@@ -1191,7 +1191,7 @@ namespace Brackethouse.GB
 		/// <returns>The value that was stored.</returns>
 		byte GetR8Byte(R8 register)
 		{
-			// I'm possibly trying to be more clever than neccessary.
+			return Registers[register];
 			// R8 enum upper nibble indicates a register,and upper
 			// nibble indicates how far to bitshift it to get the desired byte.
 			// (0 or the 128 bit, which gets shifted to 8).
@@ -1204,17 +1204,7 @@ namespace Brackethouse.GB
 		}
 		void SetR8Byte(R8 register, byte value)
 		{
-			const byte lowerMask = 0x0f;
-			const byte upperMask = 0xf0;
-			R16 reg = (R16)(lowerMask & (byte)register);
-			byte shiftAmount = (byte)((upperMask & (byte)register) >> 4);
-
-			ushort r16Val = Registers[reg];
-			ushort mask16 = (ushort)(0xff00 >> shiftAmount);
-			ushort shiftedValue = (ushort)(value << shiftAmount);
-			r16Val = (ushort)(r16Val & mask16);
-			r16Val = (ushort)(r16Val | shiftedValue);
-			Registers[reg] = r16Val;
+			Registers[register] = value;
 		}
 		/// <summary>
 		/// Get value of a flag
@@ -1223,8 +1213,7 @@ namespace Brackethouse.GB
 		/// <returns>Whether flag was set.</returns>
 		bool GetFlag(Flags flag)
 		{
-			byte f = GetR8Byte(R8.F);
-			return (f & (byte)flag) != 0;
+			return Registers[flag];
 		}
 		/// <summary>
 		/// Set a flag to a value.
@@ -1233,17 +1222,8 @@ namespace Brackethouse.GB
 		/// <param name="value">Value to set flag to.</param>
 		void SetFlag(Flags flag, bool value)
 		{
-			byte f = GetR8Byte(R8.F);
-			if (value)
-			{
-				f = (byte)(f | (byte)flag);
+			Registers[flag] = value;
 			}
-			else
-			{
-				f = (byte)(f & ~(byte)flag);
-			}
-			SetR8Byte(R8.F, f);
-		}
 		#endregion
 		/// <summary>
 		/// Initialize OpCodes and registers
@@ -1252,11 +1232,12 @@ namespace Brackethouse.GB
 		{
 			InitOpCodes();
 			// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers
+			// Lets try DMG values
 			const ushort startingPoint = 0x0100;
-			Registers[R16.AF] = 0;
-			Registers[R16.BC] = 0;
-			Registers[R16.DE] = 0;
-			Registers[R16.HL] = 0;
+			Registers[R16.AF] = 0x01b0;
+			Registers[R16.BC] = 0x0013;
+			Registers[R16.DE] = 0x00d8;
+			Registers[R16.HL] = 0x014d;
 			Registers[R16.PC] = startingPoint;
 			Registers[R16.SP] = 0xfffe;
 		}

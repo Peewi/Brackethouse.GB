@@ -12,14 +12,27 @@ namespace Brackethouse.GB
     class CPURegister
     {
 		/// <summary>
+		/// Used to prevent writes to unused part of AF.
+		/// </summary>
+		ushort[] RegisterMasks =
+		[
+			0xfff0,
+			0xffff,
+			0xffff,
+			0xffff,
+			0xffff,
+			0xffff
+		];
+		readonly ushort[] RegisterData = new ushort[6];
+		/// <summary>
 		/// 16-bit register
 		/// </summary>
 		/// <param name="reg">The desired register</param>
 		/// <returns>A 16-bit value</returns>
-        public ushort this[R16 reg]
+		public ushort this[R16 reg]
         {
             get => RegisterData[(int)reg];
-            set => RegisterData[(int)reg] = value;
+            set => RegisterData[(int)reg] = (ushort)(value & RegisterMasks[(int)reg]);
 		}
 		/// <summary>
 		/// 8-bit register, which is actually half of a 16-bit register.
@@ -41,7 +54,6 @@ namespace Brackethouse.GB
 			get => GetFlag(flag);
 			set => SetFlag(flag, value);
 		}
-        ushort[] RegisterData = new ushort[6];
 
 		/// <summary>
 		/// Get a byte value from the 16-bit registers
