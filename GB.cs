@@ -31,18 +31,18 @@ namespace Brackethouse.GB
 		}
 		public void Step()
 		{
-			CPU.Step();
-			Input.CPUStep();
-			Graphics.Step(CPU.TState);
-			IO.StepTimerRegisters(CPU.TState);
-			if (Frame != Graphics.Frame)
+			Frame++;
+			while (Frame == Graphics.Frame)
 			{
-				Frame = Graphics.Frame;
-				Display.Output();
-				if (Frame % 60 == 0)
-				{
-					Console.WriteLine($"Frame {Frame}, time: {Time.Elapsed}");
-				}
+				CPU.Step();
+				Input.CPUStep();
+				Graphics.Step(CPU.TState);
+				IO.StepTimerRegisters(CPU.TState);
+			}
+			Display.Output();
+			if (Frame % 60 == 0)
+			{
+				Console.WriteLine($"Frame {Frame}, time: {Time.Elapsed}");
 			}
 		}
 	}
