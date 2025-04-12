@@ -22,6 +22,17 @@ namespace Brackethouse.GB
 		const ushort VideoRAMEnd = 0x9FFF;
 		const ushort ObjectAttributeMemoryStart = 0xFE00;
 		const ushort ObjectAttributeMemoryEnd = 0xFE9F;
+
+		const int BGPaletteAddress = 0xff47;
+		const int Ob0PaletteAddress = 0xff48;
+		const int Ob1PaletteAddress = 0xff49;
+
+		const int ObjByteLength = 4;
+		const int ObjOffsetX = 8;
+		const int ObjOffsetY = 16;
+		const int ObjWidth = 8;
+		const int ObjBaseHeight = 8;
+
 		readonly IORegisters IO;
 		Modes Mode = Modes.OAMScan;
 		byte PixelX;
@@ -38,14 +49,23 @@ namespace Brackethouse.GB
 		ushort PreviousCPUTick = 0;
 		public const int VRAMSize = 0x2000;
 		byte[] VRAM = new byte[VRAMSize];
-		public const int OAMSize = 0xa0;
-		byte[] OAM = new byte[OAMSize];
+		public const int OAMSize = 40;
+		public const int OAMSizeBytes = OAMSize * 4;
+		byte[] OAM = new byte[OAMSizeBytes];
 		bool LCDEnable => (0b1000_0000 & IO[LCDCAddress]) != 0;
 		public int Frame { get; private set; } = 0;
 
 		byte LineObjectCount = 0;
 		const int MaxObjectsPerLine = 10;
 		byte[] LineObjects = new byte[MaxObjectsPerLine];
+
+		byte[] PaletteMask =
+		[
+			0b0000_0011,
+			0b0000_1100,
+			0b0011_0000,
+			0b1100_0000,
+		];
 
 		Display Display;
 
@@ -167,10 +187,80 @@ namespace Brackethouse.GB
 			byte tilePY = tilemapPosY;
 			tilePY %= tilesizePx;
 
-			byte pxVal = ReadTilePixel(bgTileMap, bgTileSrc, tileNumber, tilePX, tilePY);
-			Display.SetPixel(PixelX, PixelY, pxVal);
+			byte tilemapPixel = 0;
+			if (bgEnable)
+			{
+				tilemapPixel = ReadTilemapPixel(bgTileMap, bgTileSrc, tileNumber, tilePX, tilePY);
+			}
+			if (windowEnable)
+			{
+
+			}
+			byte objPixel = 0;
+			if (objectEnable)
+			{
+				objPixel = ReadObjectPixel();
+			}
+			// Apply palette
+			byte bgPalPixel = (byte)((IO[BGPaletteAddress] & PaletteMask[tilemapPixel]) >> (tilemapPixel * 2));
+
+			byte finalPixel = objPixel == 0 ? bgPalPixel : objPixel;
+			finalPixel &= 3;
+			Display.SetPixel(PixelX, PixelY, finalPixel);
 		}
-		byte ReadTilePixel(bool Altmap, bool altTiles, ushort mapTileIndex, byte x, byte y)
+		/// <summary>
+		/// Check objects for current pixel and OAM scan and get a color index.
+		/// </summary>
+		/// <returns>Bits 0 and 1 are color index. Bits 4 and 7 are the palette and priority bits from the object properties.</returns>
+		public byte ReadObjectPixel()
+		{
+			// TODO: handle double height objects
+			byte minX = byte.MaxValue;
+			int objIndex = -1;
+			for (int i = 0; i < LineObjectCount; i++)
+			{
+				byte objStart = (byte)(LineObjects[i] * ObjByteLength);
+				byte x = OAM[objStart + 1];
+
+				if (x < minX && PixelX >= x - ObjOffsetX && PixelX < x - ObjOffsetX + ObjWidth)
+				{
+					minX = x;
+					objIndex = i;
+				}
+			}
+			if (objIndex >= 0)
+			{
+				byte objStart = (byte)(LineObjects[objIndex] * ObjByteLength);
+				byte y = OAM[objStart];
+				byte x = OAM[objStart + 1];
+				byte tileIndex = OAM[objStart + 2];
+				byte flags = OAM[objStart + 3];
+				byte priority = (byte)((flags & 0b1000_0000));
+				byte yFlip = (byte)((flags & 0b0100_0000) >> 6);
+				byte xFlip = (byte)((flags & 0b0010_0000) >> 5);
+				byte palet = (byte)((flags & 0b0001_0000));
+
+				byte tileX = (byte)(PixelX - (x - ObjOffsetX));
+				byte tileY = (byte)(PixelY - (y - ObjOffsetY));
+				tileX = (byte)((ObjWidth - 1) - tileX);
+				tileX = (byte)Math.Abs((ObjWidth - 1) * xFlip - tileX);
+				tileY = (byte)Math.Abs((ObjBaseHeight - 1) * yFlip - tileY);
+
+				ushort tileStart = (ushort)(0x8000 + tileIndex * 16);
+
+				byte bitMask = (byte)(1 << tileX);
+				ushort byte1 = (ushort)(tileStart + tileY * 2);
+				ushort byte2 = (ushort)(byte1 + 1);
+				byte data = (byte)((SelfReadVRAM(byte1) & bitMask) >> tileX);
+				data |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tileX) << 1);
+
+				data |= priority;
+				data |= palet;
+				return data;
+			}
+			return 0;
+		}
+		byte ReadTilemapPixel(bool Altmap, bool altTiles, ushort mapTileIndex, byte x, byte y)
 		{
 			const ushort map1Addr = 0x9800;
 			const ushort map2Addr = 0x9C00;
@@ -199,15 +289,13 @@ namespace Brackethouse.GB
 		/// </summary>
 		void OAMScan()
 		{
-			const int oamSize = 40;
+			// TODO: handle double height objects
 			LineObjectCount = 0;
-			const int objByteSize = 4;
-			const int objHeight = 8;
-			for (int i = 0; i < oamSize; i++)
+			for (int i = 0; i < OAMSize; i++)
 			{
-				int yAddr = ObjectAttributeMemoryStart + objByteSize * i;
-				byte y = SelfReadOAM(yAddr);
-				if (PixelY >= y && PixelY < y + objHeight)
+				int yAddr = ObjectAttributeMemoryStart + ObjByteLength * i;
+				byte y = (byte)(SelfReadOAM(yAddr) - ObjOffsetY);
+				if (PixelY >= y && PixelY < y + ObjBaseHeight)
 				{
 					// if object found
 					LineObjects[LineObjectCount] = (byte)i;

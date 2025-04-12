@@ -111,7 +111,7 @@ namespace Brackethouse.GB
 		void OAM_DMA(byte value)
 		{
 			ushort DMABaseAddr = (ushort)(value << 8);
-			for (int i = 0; i < PPU.OAMSize; i++)
+			for (int i = 0; i < PPU.OAMSizeBytes; i++)
 			{
 				int readAddr = DMABaseAddr + i;
 				Graphics.DMAWriteOAM(i, this[readAddr]);
