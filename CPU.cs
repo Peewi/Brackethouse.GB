@@ -1499,7 +1499,7 @@ namespace Brackethouse.GB
 			int result = oldVal + value + carryB;
 			SetFlag(Flags.Zero, result == 0);
 			SetFlag(Flags.Subtraction, false);
-			SetFlag(Flags.HalfCarry, (((oldVal & 0x0f) + (value & 0x0f) + carryB) & 0xff) != 0);
+			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (value & 0x0f) + carryB) >= 0x10);
 			SetFlag(Flags.Carry, result > 0xff);
 			SetR8Byte(dest, (byte)result);
 		}
@@ -1536,7 +1536,7 @@ namespace Brackethouse.GB
 			int result = oldVal + value;
 			SetFlag(Flags.Zero, result == 0);
 			SetFlag(Flags.Subtraction, false);
-			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (value & 0x0f) & 0xff) != 0);
+			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (value & 0x0f)) >= 0x10);
 			SetFlag(Flags.Carry, result > 0xff);
 			SetR8Byte(dest, (byte)result);
 		}
@@ -1574,17 +1574,18 @@ namespace Brackethouse.GB
 			byte regVal = GetR8Byte(reg);
 			SetFlag(Flags.Zero, regVal == value);
 			SetFlag(Flags.Subtraction, true);
-			SetFlag(Flags.HalfCarry, value > regVal); //TODO: Figure this out
+			SetFlag(Flags.HalfCarry, (regVal & 0x0f) < (value & 0x0f));
 			SetFlag(Flags.Carry, value > regVal);
 		}
 		void Decrement(R8 reg)
 		{
 			byte val = GetR8Byte(reg);
+			bool halfcarry = (val & 0x0f) == 0x00;
 			val--;
 			SetR8Byte(reg, val);
 			SetFlag(Flags.Zero, val == 0);
 			SetFlag(Flags.Subtraction, true);
-			SetFlag(Flags.HalfCarry, 0 > 0); //TODO: Figure this out
+			SetFlag(Flags.HalfCarry,halfcarry);
 		}
 		/// <summary>
 		/// Decrement the value pointed at by the register.
@@ -1594,20 +1595,22 @@ namespace Brackethouse.GB
 		void DecrementReference(R16 addr)
 		{
 			byte val = Memory.Read(Registers[addr]);
+			bool halfcarry = (val & 0x0f) == 0x00;
 			val--;
 			Memory.Write(Registers[addr], val);
 			SetFlag(Flags.Zero, val == 0);
 			SetFlag(Flags.Subtraction, true);
-			SetFlag(Flags.HalfCarry, 0 > 0); //TODO: Figure this out
+			SetFlag(Flags.HalfCarry, halfcarry);
 		}
 		void Increment(R8 reg)
 		{
 			byte val = GetR8Byte(reg);
+			bool halfcarry = (val & 0x0f) == 0x0f;
 			val++;
 			SetR8Byte(reg, val);
 			SetFlag(Flags.Zero, val == 0);
 			SetFlag(Flags.Subtraction, false);
-			SetFlag(Flags.HalfCarry, val > 0x0f); //TODO: Figure this out
+			SetFlag(Flags.HalfCarry, halfcarry);
 		}
 		/// <summary>
 		/// Increment the value pointed at by the register.
@@ -1617,11 +1620,12 @@ namespace Brackethouse.GB
 		void IncrementReference(R16 addr)
 		{
 			byte val = Memory.Read(Registers[addr]);
+			bool halfcarry = (val & 0x0f) == 0x0f;
 			val++;
 			Memory.Write(Registers[addr], val);
 			SetFlag(Flags.Zero, val == 0);
 			SetFlag(Flags.Subtraction, false);
-			SetFlag(Flags.HalfCarry, val > 0x0f); //TODO: Figure this out
+			SetFlag(Flags.HalfCarry, halfcarry);
 		}
 		void SubtractCarry(R8 regA, R8 regB)
 		{
@@ -1637,10 +1641,11 @@ namespace Brackethouse.GB
 			int oldVal = GetR8Byte(reg);
 			byte carryB = Convert.ToByte(GetFlag(Flags.Carry));
 			int result = oldVal - value - carryB;
+			bool halfCarry = (oldVal & 0x0f) - (value & 0x0f) - carryB < 0;
 
 			SetFlag(Flags.Zero, result == 0);
 			SetFlag(Flags.Subtraction, true);
-			SetFlag(Flags.HalfCarry, false); //TODO: Figure this out
+			SetFlag(Flags.HalfCarry, halfCarry);
 			SetFlag(Flags.Carry, (value + carryB) > oldVal);
 			SetR8Byte(reg, (byte)result);
 		}
@@ -1660,7 +1665,7 @@ namespace Brackethouse.GB
 
 			SetFlag(Flags.Zero, result == 0);
 			SetFlag(Flags.Subtraction, true);
-			SetFlag(Flags.HalfCarry, false); //TODO: Figure this out
+			SetFlag(Flags.HalfCarry, (oldVal & 0x0f) < (value & 0x0f));
 			SetFlag(Flags.Carry, value > oldVal);
 			SetR8Byte(reg, (byte)result);
 		}
@@ -1668,12 +1673,13 @@ namespace Brackethouse.GB
 		#region 16-bit arithmetic instructions
 		void Add(R16 reg)
 		{
-			int val = Registers[R16.HL];
-			val += Registers[reg];
+			int oldVal = Registers[R16.HL];
+			int addVal = Registers[reg];
+			int newVal = oldVal + addVal;
 			SetFlag(Flags.Subtraction, false);
-			SetFlag(Flags.HalfCarry, val > 0x0fff); //TODO: Figure this out
-			SetFlag(Flags.Carry, val > 0xffff);
-			Registers[R16.HL] = (ushort)val;
+			SetFlag(Flags.HalfCarry, (oldVal & 0x0fff) + (addVal & 0x0fff) > 0x0fff);
+			SetFlag(Flags.Carry, newVal > 0xffff);
+			Registers[R16.HL] = (ushort)newVal;
 		}
 		void Increment(R16 reg)
 		{
@@ -2095,7 +2101,8 @@ namespace Brackethouse.GB
 		#region Stack manipulation instructions
 		void AddSP(byte e8)
 		{
-			int newVal = Registers[R16.SP] + (sbyte)e8;
+			int oldVal = Registers[R16.SP];
+			int newVal = oldVal + (sbyte)e8;
 			Registers[R16.SP] = (ushort)newVal;
 			SetFlag(Flags.Zero, false);
 			SetFlag(Flags.Subtraction, false); 
@@ -2189,13 +2196,13 @@ namespace Brackethouse.GB
 				if (GetFlag(Flags.Carry) || oldA > 0x99)
 				{
 					adjust += 0x60;
+					SetFlag(Flags.Carry, true);
 				}
 			}
-			int newval = oldA + adjust * addsub;
+			byte newval = (byte)(oldA + adjust * addsub);
 			SetFlag(Flags.Zero, newval == 0);
 			SetFlag(Flags.HalfCarry, false);
-			SetFlag(Flags.Carry, oldA + adjust * addsub > 0xff); // I hope this is correct
-			SetR8Byte(R8.A, (byte)newval);
+			SetR8Byte(R8.A, newval);
 		}
 		void NoOp()
 		{
