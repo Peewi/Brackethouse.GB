@@ -2113,6 +2113,11 @@ namespace Brackethouse.GB
 		}
 		#endregion
 		#region Stack manipulation instructions
+		/// <summary>
+		/// <c>ADD SP, e8</c><br />
+		/// Add a signed 8-bit value to SP.
+		/// </summary>
+		/// <param name="e8">Signed 8-bit value</param>
 		void AddSP(byte e8)
 		{
 			int oldVal = Registers[R16.SP];
@@ -2120,8 +2125,8 @@ namespace Brackethouse.GB
 			Registers[R16.SP] = (ushort)newVal;
 			SetFlag(Flags.Zero, false);
 			SetFlag(Flags.Subtraction, false); 
-			SetFlag(Flags.HalfCarry, false); // TODO: proper carry
-			SetFlag(Flags.Carry, true);
+			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (e8 & 0x0f)) >= 0x10);
+			SetFlag(Flags.Carry, (oldVal & 0xff) + e8 > 0xff);
 		}
 		/// <summary>
 		/// <c>LD [n16],SP</c><br />
@@ -2134,10 +2139,20 @@ namespace Brackethouse.GB
 			Memory.Write(address, (byte)sp);
 			Memory.Write(address + 1, (byte)(sp >> 8));
 		}
-		void LoadHLrelSP(byte rel)
+		/// <summary>
+		/// <c>LD HL, SP + e8</c><br />
+		/// Load SP plus a signed 8-bit value into HL.
+		/// </summary>
+		/// <param name="e8">Signed 8-bit value</param>
+		void LoadHLrelSP(byte e8)
 		{
-			int val = Registers[R16.PC] + (sbyte)rel;
-			Registers[R16.PC] = (ushort)val;
+			int oldVal = Registers[R16.SP];
+			int val = oldVal + (sbyte)e8;
+			Registers[R16.HL] = (ushort)val;
+			SetFlag(Flags.Zero, false);
+			SetFlag(Flags.Subtraction, false);
+			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (e8 & 0x0f)) >= 0x10);
+			SetFlag(Flags.Carry, (oldVal & 0xff) + e8 > 0xff);
 		}
 		void Load(R16 dest, R16 src)
 		{
