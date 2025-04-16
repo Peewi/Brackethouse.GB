@@ -174,20 +174,48 @@ namespace Brackethouse.GB
 				Mode = PixelY >= Height ? Modes.VBlank : Mode;
 				if (prevMode != Modes.VBlank && Mode == Modes.VBlank)
 				{
+				}
+			}
+			if (prevMode != Mode)
+			{
+				//https://gbdev.io/pandocs/STAT.html#ff41--stat-lcd-status
+				if (Mode == Modes.HBlank && (IO[LCDStatusAddress] & 0b0000_1000) != 0)
+				{
+					FlagLCDStatusInterrupt();
+				}
+				else if (Mode == Modes.VBlank)
+				{
 					FlagVBlankInterrupt();
+					if ((IO[LCDStatusAddress] & 0b0001_0000) != 0)
+					{
+						FlagLCDStatusInterrupt();
+					}
+				}
+				else if (Mode == Modes.OAMScan && (IO[LCDStatusAddress] & 0b0010_0000) != 0)
+				{
+					FlagLCDStatusInterrupt();
 				}
 			}
 		}
-
+		/// <summary>
+		/// Update the PPU Mode and LYC==LY bits of the LCD Status register.
+		/// Also flags the LCD Status interrupt if appropriate.
+		/// </summary>
 		private void UpdateLCDStatus()
 		{
 			byte status = IO[LCDStatusAddress];
+			byte oldLYCBit = status;
+			oldLYCBit &= 0b0100;
 			status &= 0b1111_1000;
 			byte LYCBit = (byte)(PixelY == IO[LYCompareAddress] ? 0b0100 : 0);
 			byte modeBits = (byte)((byte)Mode & 0b0011);
 			status |= LYCBit;
 			status |= modeBits;
 			IO[LCDStatusAddress] = status;
+			if (oldLYCBit != LYCBit && LYCBit != 0 && (status & 0b0100_0000) != 0)
+			{
+				FlagLCDStatusInterrupt();
+			}
 		}
 
 		void CheckLCDControl()
@@ -259,7 +287,6 @@ namespace Brackethouse.GB
 		/// <returns>Bits 0 and 1 are color index. Bits 4 and 7 are the palette and priority bits from the object properties.</returns>
 		public byte ReadObjectPixel()
 		{
-			// TODO: handle double height objects
 			byte minX = byte.MaxValue;
 			int objIndex = -1;
 			for (int i = 0; i < LineObjectCount; i++)
@@ -377,6 +404,12 @@ namespace Brackethouse.GB
 		{
 			const ushort interruptFlag = 0xff0f;
 			const int vBlankBit = 0b0000_0001;
+			IO[interruptFlag] |= vBlankBit;
+		}
+		void FlagLCDStatusInterrupt()
+		{
+			const ushort interruptFlag = 0xff0f;
+			const int vBlankBit = 0b0000_0010;
 			IO[interruptFlag] |= vBlankBit;
 		}
 		public void DumpTiles()
