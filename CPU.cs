@@ -143,7 +143,7 @@ namespace Brackethouse.GB
 			OpCodes[0x11] = () => { Load(R16.DE, Immediate16()); };
 			OpCodes[0x21] = () => { Load(R16.HL, Immediate16()); };
 			OpCodes[0x31] = () => { Load(R16.SP, Immediate16()); };
-			OpCodes[0x41] = () => { Load(R8.B, R8.B); };
+			OpCodes[0x41] = () => { Load(R8.B, R8.C); };
 			OpCodes[0x51] = () => { Load(R8.D, R8.C); };
 			OpCodes[0x61] = () => { Load(R8.H, R8.C); };
 			OpCodes[0x71] = () => { Load(R16.HL, R8.C); };
@@ -1798,26 +1798,31 @@ namespace Brackethouse.GB
 		void RotateLeft(R8 reg)
 		{
 			byte oldVal = GetR8Byte(reg);
-			int newVal = oldVal << 1;
-			newVal += Convert.ToByte(GetFlag(Flags.Carry));
-			SetFlag(Flags.Zero, newVal == 0);
+			byte rotated = (byte)(oldVal << 1);
+			rotated += Convert.ToByte(GetFlag(Flags.Carry));
+			SetFlag(Flags.Zero, rotated == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
-			const int carryMask = 0x0100;
-			SetFlag(Flags.Carry, (newVal & carryMask) != 0);
-			SetR8Byte(reg, (byte)newVal);
+			const int carryMask = 0x080;
+			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
+			SetR8Byte(reg, rotated);
 		}
+		/// <summary>
+		/// RL [HL]
+		/// </summary>
+		/// <param name="address">Register pointing at a memory address</param>
 		void RotateLeft(R16 address)
 		{
 			byte oldVal = Memory.Read(Registers[address]);
-			int newVal = oldVal << 1;
+			byte newVal = oldVal;
+			newVal <<= 1;
 			newVal += Convert.ToByte(GetFlag(Flags.Carry));
 			SetFlag(Flags.Zero, newVal == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
-			const int carryMask = 0x0100;
-			SetFlag(Flags.Carry, (newVal & carryMask) != 0);
-			Memory.Write(Registers[address], (byte)newVal);
+			const int carryMask = 0x80;
+			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
+			Memory.Write(Registers[address], newVal);
 		}
 		/// <summary>
 		/// Does <see cref="RotateLeft(R8)"/> then sets Zero flag to 0.
@@ -1916,7 +1921,6 @@ namespace Brackethouse.GB
 		{
 			RotateRightCarry(reg);
 			SetFlag(Flags.Zero, false);
-			// TODO: Double check flags
 		}
 		void ShiftLeftArithmetic(R8 reg)
 		{
@@ -1945,26 +1949,32 @@ namespace Brackethouse.GB
 		void ShiftRightArithmetic(R8 reg)
 		{
 			byte oldVal = GetR8Byte(reg);
-			int newVal = oldVal >> 1;
-			byte newByte = (byte)newVal;
-			SetFlag(Flags.Zero, newByte == 0);
+			byte leftBit = oldVal;
+			leftBit &= 0x80;
+			byte newVal = oldVal;
+			newVal >>= 1;
+			newVal |= leftBit;
+			SetFlag(Flags.Zero, newVal == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			SetR8Byte(reg, newByte);
+			SetR8Byte(reg, newVal);
 		}
 		void ShiftRightArithmetic(R16 address)
 		{
 			byte oldVal = Memory.Read(Registers[address]);
-			int newVal = oldVal >> 1;
-			byte newByte = (byte)newVal;
-			SetFlag(Flags.Zero, newByte == 0);
+			byte leftBit = oldVal;
+			leftBit &= 0x80;
+			byte newVal = oldVal;
+			newVal >>= 1;
+			newVal |= leftBit;
+			SetFlag(Flags.Zero, newVal == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			Memory.Write(Registers[address], newByte);
+			Memory.Write(Registers[address], newVal);
 		}
 		void ShiftRightLogic(R8 reg)
 		{
