@@ -1499,12 +1499,13 @@ namespace Brackethouse.GB
 			// Looks like dest should always be R8.A
 			int oldVal = GetR8Byte(dest);
 			byte carryB = Convert.ToByte(GetFlag(Flags.Carry));
-			int result = oldVal + value + carryB;
-			SetFlag(Flags.Zero, result == 0);
+			int intResult = oldVal + value + carryB;
+			byte byteResult = (byte)intResult;
+			SetFlag(Flags.Zero, byteResult == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (value & 0x0f) + carryB) >= 0x10);
-			SetFlag(Flags.Carry, result > 0xff);
-			SetR8Byte(dest, (byte)result);
+			SetFlag(Flags.Carry, intResult > 0xff);
+			SetR8Byte(dest, byteResult);
 		}
 		/// <summary>
 		/// <c>ADD A,r8</c><br />
@@ -1536,12 +1537,13 @@ namespace Brackethouse.GB
 		{
 			// Looks like dest should always be R8.A
 			int oldVal = GetR8Byte(dest);
-			int result = oldVal + value;
-			SetFlag(Flags.Zero, result == 0);
+			int intResult = oldVal + value;
+			byte byteResult = (byte)intResult;
+			SetFlag(Flags.Zero, byteResult == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (value & 0x0f)) >= 0x10);
-			SetFlag(Flags.Carry, result > 0xff);
-			SetR8Byte(dest, (byte)result);
+			SetFlag(Flags.Carry, intResult > 0xff);
+			SetR8Byte(dest, byteResult);
 		}
 		/// <summary>
 		/// <c>CP A,r8</c><br/>
@@ -1643,14 +1645,15 @@ namespace Brackethouse.GB
 			// Looks like reg should always be R8.A
 			int oldVal = GetR8Byte(reg);
 			byte carryB = Convert.ToByte(GetFlag(Flags.Carry));
-			int result = oldVal - value - carryB;
+			int intResult = oldVal - value - carryB;
+			byte byteResult = (byte)intResult;
 			bool halfCarry = (oldVal & 0x0f) - (value & 0x0f) - carryB < 0;
 
-			SetFlag(Flags.Zero, result == 0);
+			SetFlag(Flags.Zero, byteResult == 0);
 			SetFlag(Flags.Subtraction, true);
 			SetFlag(Flags.HalfCarry, halfCarry);
 			SetFlag(Flags.Carry, (value + carryB) > oldVal);
-			SetR8Byte(reg, (byte)result);
+			SetR8Byte(reg, byteResult);
 		}
 		void Subtract(R8 regA, R8 regB)
 		{
@@ -1664,13 +1667,14 @@ namespace Brackethouse.GB
 		{
 			// Looks like reg should always be R8.A
 			int oldVal = GetR8Byte(reg);
-			int result = oldVal - value;
+			int intResult = oldVal - value;
+			byte byteResult = (byte)intResult;
 
-			SetFlag(Flags.Zero, result == 0);
+			SetFlag(Flags.Zero, byteResult == 0);
 			SetFlag(Flags.Subtraction, true);
 			SetFlag(Flags.HalfCarry, (oldVal & 0x0f) < (value & 0x0f));
 			SetFlag(Flags.Carry, value > oldVal);
-			SetR8Byte(reg, (byte)result);
+			SetR8Byte(reg, byteResult);
 		}
 		#endregion
 		#region 16-bit arithmetic instructions
@@ -1860,30 +1864,31 @@ namespace Brackethouse.GB
 			byte oldVal = GetR8Byte(reg);
 			int newVal = oldVal >>> 1;
 			newVal += Convert.ToByte(GetFlag(Flags.Carry)) << 7;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			SetR8Byte(reg, (byte)newVal);
+			SetR8Byte(reg, newByte);
 		}
 		void RotateRight(R16 address)
 		{
 			byte oldVal = Memory.Read(Registers[address]);
 			int newVal = oldVal >>> 1;
 			newVal += Convert.ToByte(GetFlag(Flags.Carry)) << 7;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			Memory.Write(Registers[address], (byte)newVal);
+			Memory.Write(Registers[address], newByte);
 		}
 		void RotateRightA(R8 reg)
 		{
 			RotateRight(reg);
 			SetFlag(Flags.Zero, false);
-			// TODO: Double check flags
 		}
 		void RotateRightCarry(R8 reg)
 		{
@@ -1917,67 +1922,73 @@ namespace Brackethouse.GB
 		{
 			byte oldVal = GetR8Byte(reg);
 			int newVal = oldVal << 1;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x80;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			SetR8Byte(reg, (byte)newVal);
+			SetR8Byte(reg, newByte);
 		}
 		void ShiftLeftArithmetic(R16 address)
 		{
 			byte oldVal = Memory.Read(Registers[address]);
 			int newVal = oldVal << 1;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x80;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			Memory.Write(Registers[address], (byte)newVal);
+			Memory.Write(Registers[address], newByte);
 		}
 		void ShiftRightArithmetic(R8 reg)
 		{
 			byte oldVal = GetR8Byte(reg);
 			int newVal = oldVal >> 1;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			SetR8Byte(reg, (byte)newVal);
+			SetR8Byte(reg, newByte);
 		}
 		void ShiftRightArithmetic(R16 address)
 		{
 			byte oldVal = Memory.Read(Registers[address]);
 			int newVal = oldVal >> 1;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			Memory.Write(Registers[address], (byte)newVal);
+			Memory.Write(Registers[address], newByte);
 		}
 		void ShiftRightLogic(R8 reg)
 		{
 			byte oldVal = GetR8Byte(reg);
 			int newVal = oldVal >>> 1;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			SetR8Byte(reg, (byte)newVal);
+			SetR8Byte(reg, newByte);
 		}
 		void ShiftRightLogic(R16 address)
 		{
 			byte oldVal = Memory.Read(Registers[address]);
 			int newVal = oldVal >>> 1;
-			SetFlag(Flags.Zero, newVal == 0);
+			byte newByte = (byte)newVal;
+			SetFlag(Flags.Zero, newByte == 0);
 			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, false);
 			const int carryMask = 0x01;
 			SetFlag(Flags.Carry, (oldVal & carryMask) != 0);
-			Memory.Write(Registers[address], (byte)newVal);
+			Memory.Write(Registers[address], newByte);
 		}
 		void Swap(R8 reg)
 		{
