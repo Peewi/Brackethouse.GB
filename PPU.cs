@@ -53,12 +53,51 @@ namespace Brackethouse.GB
 		public const int OAMSize = 40;
 		public const int OAMSizeBytes = OAMSize * 4;
 		byte[] OAM = new byte[OAMSizeBytes];
-		bool LCDEnable => (0b1000_0000 & IO[LCDCAddress]) != 0;
 		public int Frame { get; private set; } = 0;
 
 		byte LineObjectCount = 0;
 		const int MaxObjectsPerLine = 10;
 		byte[] LineObjects = new byte[MaxObjectsPerLine];
+		/// <summary>
+		/// Bit 0 of LCD Control.
+		/// Controls whether the background is drawn.
+		/// </summary>
+		bool BGEnable;
+		/// <summary>
+		/// Bit 1 of LCD Control.
+		/// Controls whether objects are drawn.
+		/// </summary>
+		bool ObjectEnable;
+		/// <summary>
+		/// Bit 2 of LCD Control.
+		/// Controls whether objects are 8 or 16 pixels tall.
+		/// </summary>
+		bool ObjectSize;
+		/// <summary>
+		/// Bit 3 of LCD Control.
+		/// Controls which tilemap is used for the background.
+		/// </summary>
+		bool BGTileMap;
+		/// <summary>
+		/// Bit 4 of LCD Control
+		/// Controls which tiles are used for the background.
+		/// </summary>
+		bool BGTileSrc;
+		/// <summary>
+		/// Bit 5 of LCD Control.
+		/// Controls whether the window gets drawn.
+		/// </summary>
+		bool WindowEnable;
+		/// <summary>
+		/// Bit 6 of LCD Control.
+		/// Controls which tiles are used for the window.
+		/// </summary>
+		bool WindowTileMap;
+		/// <summary>
+		/// Bit 7 of LCD Control.
+		/// Controls whether the display and PPU are on.
+		/// </summary>
+		bool LCDEnable;
 
 		byte[] PaletteMask =
 		[
@@ -77,6 +116,7 @@ namespace Brackethouse.GB
 		}
 		public void Step(ushort tick)
 		{
+			CheckLCDControl();
 			if (!LCDEnable)
 			{
 				OffTicks += 4;
@@ -101,7 +141,6 @@ namespace Brackethouse.GB
 			// https://gbdev.io/pandocs/Rendering.html
 
 			Modes prevMode = Mode;
-			//TODO: Do actual processing and not just counting.
 			if (PixelY < Height)
 			{
 				if (LineTicks == 0)
@@ -109,7 +148,6 @@ namespace Brackethouse.GB
 					// I'm just gonna do the OAM scan in one go.
 					OAMScan();
 					Mode = Modes.OAMScan;
-
 				}
 				else if (LineTicks == 80)
 				{
@@ -152,18 +190,21 @@ namespace Brackethouse.GB
 			IO[LCDStatusAddress] = status;
 		}
 
-		void DrawPixel(byte x, byte y)
+		void CheckLCDControl()
 		{
 			byte lcdc = IO[LCDCAddress];
-			bool bgEnable = (0b0000_0001 & lcdc) != 0;
-			bool objectEnable = (0b0000_0010 & lcdc) != 0;
-			bool objectSize = (0b0000_0100 & lcdc) != 0;
-			bool bgTileMap = (0b0000_1000 & lcdc) != 0;
-			bool bgTileSrc = (0b0001_0000 & lcdc) != 0;
-			bool windowEnable = (0b0010_0000 & lcdc) != 0;
-			bool windowTileMap = (0b0100_0000 & lcdc) != 0;
-			bool LCDEnable = (0b1000_0000 & lcdc) != 0;
+			BGEnable = (0b0000_0001 & lcdc) != 0;
+			ObjectEnable = (0b0000_0010 & lcdc) != 0;
+			ObjectSize = (0b0000_0100 & lcdc) != 0;
+			BGTileMap = (0b0000_1000 & lcdc) != 0;
+			BGTileSrc = (0b0001_0000 & lcdc) != 0;
+			WindowEnable = (0b0010_0000 & lcdc) != 0;
+			WindowTileMap = (0b0100_0000 & lcdc) != 0;
+			LCDEnable = (0b1000_0000 & lcdc) != 0;
+		}
 
+		void DrawPixel(byte x, byte y)
+		{
 			if (!LCDEnable)
 			{
 				//return;
@@ -192,16 +233,16 @@ namespace Brackethouse.GB
 			tilePY %= tilesizePx;
 
 			byte tilemapPixel = 0;
-			if (bgEnable)
+			if (BGEnable)
 			{
-				tilemapPixel = ReadTilemapPixel(bgTileMap, bgTileSrc, tileNumber, tilePX, tilePY);
+				tilemapPixel = ReadTilemapPixel(BGTileMap, BGTileSrc, tileNumber, tilePX, tilePY);
 			}
-			if (windowEnable)
+			if (WindowEnable)
 			{
 
 			}
 			byte objPixel = 0;
-			if (objectEnable)
+			if (ObjectEnable)
 			{
 				objPixel = ReadObjectPixel();
 			}
@@ -234,6 +275,11 @@ namespace Brackethouse.GB
 			}
 			if (objIndex >= 0)
 			{
+				int height = ObjBaseHeight;
+				if (ObjectSize)
+				{
+					height += ObjBaseHeight;
+				}
 				byte objStart = (byte)(LineObjects[objIndex] * ObjByteLength);
 				byte y = OAM[objStart];
 				byte x = OAM[objStart + 1];
@@ -248,8 +294,20 @@ namespace Brackethouse.GB
 				byte tileY = (byte)(PixelY - (y - ObjOffsetY));
 				tileX = (byte)((ObjWidth - 1) - tileX);
 				tileX = (byte)Math.Abs((ObjWidth - 1) * xFlip - tileX);
-				tileY = (byte)Math.Abs((ObjBaseHeight - 1) * yFlip - tileY);
-
+				tileY = (byte)Math.Abs((height - 1) * yFlip - tileY);
+				if (ObjectSize)
+				{
+					// For 16 pixel tall objects, control which object is read from.
+					//https://gbdev.io/pandocs/OAM.html#byte-2--tile-index
+					if (tileY < ObjBaseHeight)
+					{
+						tileIndex &= 0b1111_1110;
+					}
+					else
+					{
+						tileIndex |= 0b0000_0001;
+					}
+				}
 				ushort tileStart = (ushort)(0x8000 + tileIndex * 16);
 
 				byte bitMask = (byte)(1 << tileX);
@@ -293,13 +351,17 @@ namespace Brackethouse.GB
 		/// </summary>
 		void OAMScan()
 		{
-			// TODO: handle double height objects
 			LineObjectCount = 0;
+			int objectHeight = ObjBaseHeight;
+			if (ObjectSize)
+			{
+				objectHeight += ObjBaseHeight;
+			}
 			for (int i = 0; i < OAMSize; i++)
 			{
 				int yAddr = ObjectAttributeMemoryStart + ObjByteLength * i;
 				byte y = (byte)(SelfReadOAM(yAddr) - ObjOffsetY);
-				if (PixelY >= y && PixelY < y + ObjBaseHeight)
+				if (PixelY >= y && PixelY < y + objectHeight)
 				{
 					// if object found
 					LineObjects[LineObjectCount] = (byte)i;
