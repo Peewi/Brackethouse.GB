@@ -46,6 +46,7 @@ namespace Brackethouse.GB
 		public const ushort LYAddress = 0xff44;
 		public const ushort LYCompareAddress = 0xff45;
 		int LineTicks = 0;
+		int OffTicks = 0;
 		ushort PreviousCPUTick = 0;
 		public const int VRAMSize = 0x2000;
 		byte[] VRAM = new byte[VRAMSize];
@@ -78,6 +79,9 @@ namespace Brackethouse.GB
 		{
 			if (!LCDEnable)
 			{
+				OffTicks += 4;
+				Frame += OffTicks / (TicksPerLine * ScanLines);
+				OffTicks %= (TicksPerLine * ScanLines);
 				LineTicks = 0;
 				PixelX = 0;
 				PixelY = 0;
