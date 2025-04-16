@@ -312,7 +312,7 @@ namespace Brackethouse.GB
 			OpCodes[0x0b] = () => { Decrement(R16.BC); };
 			OpCodes[0x1b] = () => { Decrement(R16.DE); };
 			OpCodes[0x2b] = () => { Decrement(R16.BC); };
-			OpCodes[0x3b] = () => { Decrement(R16.BC); };
+			OpCodes[0x3b] = () => { Decrement(R16.SP); };
 			OpCodes[0x4b] = () => { Load(R8.C, R8.E); };
 			OpCodes[0x5b] = () => { Load(R8.E, R8.E); };
 			OpCodes[0x6b] = () => { Load(R8.L, R8.E); };
