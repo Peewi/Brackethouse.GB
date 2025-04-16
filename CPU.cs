@@ -1237,8 +1237,11 @@ namespace Brackethouse.GB
 		{
 			byte interruptByte = Memory[InterruptEnableRegister];
 			interruptByte &= Memory[InterruptFlag];
-			if (InterruptMasterEnable && interruptByte != 0)
+			if (interruptByte != 0)
 			{
+				Halted = false;
+				if (InterruptMasterEnable)
+				{
 				// Do interrupt here.
 				for (int i = 0; i < InterruptTargets.Length; i++)
 				{
@@ -1246,7 +1249,6 @@ namespace Brackethouse.GB
 					checkBit <<= i;
 					if ((checkBit & interruptByte) == checkBit)
 					{
-						Halted = false;
 						InterruptMasterEnable = false;
 						Memory[InterruptFlag] ^= checkBit;
 
@@ -1256,6 +1258,7 @@ namespace Brackethouse.GB
 						return;
 					}
 				}
+			}
 			}
 			if (Halted || Stopped)
 			{
