@@ -18,6 +18,7 @@ namespace Brackethouse.GB
 		IORegisters IO;
 		int Frame = -1;
 		Stopwatch Time = new Stopwatch();
+		public string GameTitle => Cart.Title;
 		public GB(string cartPath, nint renderer)
 		{
 			Cart = Cartridge.FromFile(cartPath);

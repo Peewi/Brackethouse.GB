@@ -46,11 +46,60 @@ namespace Brackethouse.GB
 		}
 		const ushort TypeAddress = 0x0147;
 		readonly CartridgeType Type;
-        byte[] ROM;
+		public readonly string Title = "";
+        readonly byte[] ROM;
+		int BankSelect = 1;
+		delegate void WriteHandlerDelegate(ushort address, byte value);
+		delegate byte ReadHandlerDelegate(ushort address);
+		readonly WriteHandlerDelegate WriteHandler;
+		readonly ReadHandlerDelegate ReadHandler;
 		private Cartridge(byte[] rom)
 		{
+			WriteHandler = ROMOnlyWrite;
+			ReadHandler = ROMOnlyRead;
 			ROM = rom;
 			Type = (CartridgeType)Read(TypeAddress);
+			if (Type == CartridgeType.MBC1
+				|| Type == CartridgeType.MBC1_RAM
+				|| Type == CartridgeType.MBC1_RAM_BATTERY)
+			{
+				WriteHandler = MBC1Write;
+				ReadHandler = MBC1Read;
+			}
+			else if (Type == CartridgeType.MBC2
+				|| Type == CartridgeType.MBC2_BATTERY)
+			{
+
+			}
+			else if (Type == CartridgeType.MBC3
+				|| Type == CartridgeType.MBC3_RAM
+				|| Type == CartridgeType.MBC3_RAM_BATTERY
+				|| Type == CartridgeType.MBC3_TIMER_BATTERY
+				|| Type == CartridgeType.MBC3_TIMER_RAM_BATTERY)
+			{
+
+			}
+			else if (Type == CartridgeType.MBC5
+				|| Type == CartridgeType.MBC5_RAM
+				|| Type == CartridgeType.MBC5_RAM_BATTERY
+				|| Type == CartridgeType.MBC5_RUMBLE
+				|| Type == CartridgeType.MBC5_RUMBLE_RAM
+				|| Type == CartridgeType.MBC5_RUMBLE_RAM_BATTERY)
+			{
+
+			}
+			else if (Type == CartridgeType.MBC6)
+			{
+
+			}
+			else if (Type == CartridgeType.MBC7_SENSOR_RUMBLE_RAM_BATTERY)
+			{
+
+			}
+			for (int i = 0x0134; i < 0x0144; i++)
+			{
+				Title += (char)rom[i];
+			}
 		}
 		/// <summary>
 		/// Make a cartridge from a file.
@@ -78,6 +127,21 @@ namespace Brackethouse.GB
 		public byte Read(ushort address)
 		{
 			// TODO: Handle other cartridge types.
+			return ReadHandler(address);
+		}
+		byte ROMOnlyRead(ushort address)
+		{
+			return ROM[address];
+		}
+		byte MBC1Read(ushort address)
+		{
+			const ushort bankSize = 0x4000;
+			if (address < bankSize)
+			{
+				return ROM[address];
+			}
+			int bank = Math.Max(BankSelect, 1);
+			address += (ushort)(0x4000 * (bank - 1));
 			return ROM[address];
 		}
 		/// <summary>
@@ -88,6 +152,34 @@ namespace Brackethouse.GB
 		public void Write(ushort address, byte value)
 		{
 			// TODO: Handle other cartridge types.
+			WriteHandler(address, value);
+		}
+		/// <summary>
+		/// What happens when a byte is written to a ROM address, which is nothing.
+		/// </summary>
+		void ROMOnlyWrite(ushort address, byte value)
+		{
+
+		}
+		/// <summary>
+		/// What the MBC1 does when a byte is written to a ROM address.
+		/// This selects a ROM bank
+		/// </summary>
+		void MBC1Write(ushort address, byte value)
+		{
+			const ushort RAMEnableEnd = 0x1fff;
+			const ushort ROMBankStart = 0x2000;
+			const ushort ROMBankEnd = 0x3fff;
+			if (address <= RAMEnableEnd)
+			{
+				//throw new NotImplementedException();
+			}
+			if (address >= ROMBankStart && address <= ROMBankEnd)
+			{
+				const byte fiveBitMask = 0b0001_1111;
+				value &= fiveBitMask;
+				BankSelect = value;
+			}
 		}
 		static public bool AddressIsCartridge(ushort address)
 		{
