@@ -76,9 +76,6 @@ namespace Brackethouse.GB
 		readonly ushort[] InterruptTargets = [0x40, 0x48, 0x50, 0x58, 0x60];
 		const ushort InterruptFlag = 0xff0f;
 		const ushort InterruptEnableRegister = 0xffff;
-#if DEBUG
-		List<string> AddrLog = new List<string>(1000000);
-#endif
 
 		public CPU(Memory mem)
 		{
@@ -1271,21 +1268,6 @@ namespace Brackethouse.GB
 			ConditionalTicks = 0;
 			ushort address = Registers[R16.PC];
 			byte op = Memory.Read(address);
-#if DEBUG
-			AddrLog.Add(address.ToString("X4"));
-			if (AddrLog.Count == 100000)
-			{
-				File.WriteAllLines("addrlog.txt", AddrLog);
-			}
-			if (address == 0x0040)
-			{
-
-			}
-			if (address == 0x27cc)
-			{
-
-			}
-#endif
 			OpCodes[op].Invoke();
 			Registers[R16.PC] += (ushort)Math.Clamp(PCAdvance,0, 3);
 			// It's not entirely clear if the CB cycle is in addition to the CB op
@@ -2076,7 +2058,6 @@ namespace Brackethouse.GB
 			sbyte rel = (sbyte)value;
 			int newPC = Registers[R16.PC] + rel;
 			Registers[R16.PC] = (ushort)newPC;
-			//PCAdvance = 0;
 		}
 		void JumpRelativeConditional(byte value, Flags flag, bool set)
 		{
@@ -2170,7 +2151,6 @@ namespace Brackethouse.GB
 		}
 		void Pop(R16 reg)
 		{
-			// I hope I did this correctly.
 			byte b1 = Memory.Read(Registers[R16.SP] + 0);
 			byte b2 = Memory.Read(Registers[R16.SP] + 1);
 			Registers[reg] = (ushort)(b1 + (b2 << 8));
@@ -2178,7 +2158,6 @@ namespace Brackethouse.GB
 		}
 		void Push(R16 reg)
 		{
-			// I hope I did this correctly.
 			R8 r1 = (R8)reg;
 			R8 r2 = (R8)(reg + 128);
 			Memory.Write(Registers[R16.SP] - 1, GetR8Byte(r2));
@@ -2187,7 +2166,6 @@ namespace Brackethouse.GB
 		}
 		void Push(ushort value)
 		{
-			// I hope I did this correctly.
 			Memory.Write(Registers[R16.SP] - 1, (byte)(value >> 8));
 			Memory.Write(Registers[R16.SP] - 2, (byte)(value));
 			Registers[R16.SP] -= 2;
