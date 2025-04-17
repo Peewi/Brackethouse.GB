@@ -37,6 +37,7 @@ namespace Brackethouse.GB
 		Modes Mode = Modes.OAMScan;
 		byte PixelX;
 		byte PixelY;
+		bool WindowFrameEnable = false;
 		const byte Width = 160;
 		const byte Height = 144;
 		const byte ScanLines = 154;
@@ -182,11 +183,12 @@ namespace Brackethouse.GB
 				PixelX = 0;
 				PixelY++;
 				Frame += PixelY / ScanLines;
+				if (PixelY >= ScanLines)
+				{
+					WindowFrameEnable = false;
+				}
 				PixelY %= ScanLines;
 				Mode = PixelY >= Height ? Modes.VBlank : Mode;
-				if (prevMode != Modes.VBlank && Mode == Modes.VBlank)
-				{
-				}
 			}
 			if (prevMode != Mode)
 			{
@@ -259,27 +261,24 @@ namespace Brackethouse.GB
 			byte tilemapPosY = y;
 			tilemapPosY += sy;
 
-			byte tilesizePx = 8;
-			byte tileX = tilemapPosX;
-			tileX /= tilesizePx;
-			byte tileY = tilemapPosY;
-			tileY /= tilesizePx;
-
-			const byte mapWidth = 32;
-			ushort tileNumber = (ushort)(tileY * mapWidth + tileX);
-			byte tilePX = tilemapPosX;
-			tilePX %= tilesizePx;
-			byte tilePY = tilemapPosY;
-			tilePY %= tilesizePx;
-
 			byte bgPixel = 0;
 			if (BGEnable)
 			{
-				bgPixel = ReadTilemapPixel(BGTileMap, BGTileSrc, tileNumber, tilePX, tilePY);
-			}
-			if (BGEnable && WindowEnable)
-			{
-
+				bgPixel = ReadTilemapPixel(BGTileMap, BGTileSrc, tilemapPosX, tilemapPosY);
+				if (WindowEnable && wx >= 0 && wx <=166 && wy >= 0 && wy <= 143)
+				{
+					const byte WindowXOffset = 7;
+					WindowFrameEnable |= wy == y;
+					if (WindowFrameEnable && wx <= x + WindowXOffset)
+					{
+						byte windowDrawX = x;
+						windowDrawX -= wx;
+						windowDrawX += WindowXOffset;
+						byte windowDrawY = y;
+						windowDrawY -= wy;
+						bgPixel = ReadTilemapPixel(WindowTileMap, BGTileSrc, windowDrawX, windowDrawY);
+					}
+				}
 			}
 			byte objPixel = 0;
 			if (ObjectEnable)
@@ -374,8 +373,29 @@ namespace Brackethouse.GB
 			pixel |= pxAttrib;
 			return pixel;
 		}
-		byte ReadTilemapPixel(bool Altmap, bool altTiles, ushort mapTileIndex, byte x, byte y)
+		/// <summary>
+		/// Read a pixel from a tilemap
+		/// </summary>
+		/// <param name="Altmap">Whether to read the alternate tile map</param>
+		/// <param name="altTiles">Whether to pull from the alternate tile data</param>
+		/// <param name="mapX">X position for where to read from</param>
+		/// <param name="mapY">Y position for where to read from</param>
+		/// <returns>A 2-bit color read from the tilemap. Palette has NOT been applied.</returns>
+		byte ReadTilemapPixel(bool Altmap, bool altTiles, byte mapX, byte mapY)
 		{
+			byte tilesizePx = 8;
+			byte tileX = mapX;
+			tileX /= tilesizePx;
+			byte tileY = mapY;
+			tileY /= tilesizePx;
+
+			const byte mapWidth = 32;
+			ushort tileNumber = (ushort)(tileY * mapWidth + tileX);
+			byte tilePX = mapX;
+			tilePX %= tilesizePx;
+			byte tilePY = mapY;
+			tilePY %= tilesizePx;
+
 			const ushort map1Addr = 0x9800;
 			const ushort map2Addr = 0x9C00;
 			ushort tAddr = map1Addr;
@@ -383,19 +403,19 @@ namespace Brackethouse.GB
 			{
 				tAddr = map2Addr;
 			}
-			tAddr += mapTileIndex;
+			tAddr += tileNumber;
 			byte tileIndex = SelfReadVRAM(tAddr);
 			ushort tileStart = (ushort)(0x9000 + (sbyte)tileIndex * 16);
 			if (altTiles)
 			{
 				tileStart = (ushort)(0x8000 + tileIndex * 16);
 			}
-			x = (byte)((ObjWidth - 1) - x);
-			byte bitMask = (byte)(1 << x);
-			ushort byte1 = (ushort)(tileStart + y * 2);
+			tilePX = (byte)((ObjWidth - 1) - tilePX);
+			byte bitMask = (byte)(1 << tilePX);
+			ushort byte1 = (ushort)(tileStart + tilePY * 2);
 			ushort byte2 = (ushort)(byte1 + 1);
-			byte data = (byte)((SelfReadVRAM(byte1) & bitMask) >> x);
-			data |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> x) << 1);
+			byte data = (byte)((SelfReadVRAM(byte1) & bitMask) >> tilePX);
+			data |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tilePX) << 1);
 			return data;
 		}
 		/// <summary>
