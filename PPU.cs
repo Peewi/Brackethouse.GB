@@ -58,6 +58,8 @@ namespace Brackethouse.GB
 		byte LineObjectCount = 0;
 		const int MaxObjectsPerLine = 10;
 		byte[] LineObjects = new byte[MaxObjectsPerLine];
+		byte BackgroundPalette = 0;
+		byte[] ObjectPalette = [0, 0];
 		/// <summary>
 		/// Bit 0 of LCD Control.
 		/// Controls whether the background is drawn.
@@ -132,6 +134,9 @@ namespace Brackethouse.GB
 				Mode = Modes.HBlank;
 				PreviousCPUTick = tick;
 			}
+			BackgroundPalette = IO[BGPaletteAddress];
+			ObjectPalette[0] = IO[Ob0PaletteAddress];
+			ObjectPalette[1] = IO[Ob1PaletteAddress];
 			while (tick != PreviousCPUTick)
 			{
 				PreviousCPUTick++;
@@ -267,10 +272,10 @@ namespace Brackethouse.GB
 			byte tilePY = tilemapPosY;
 			tilePY %= tilesizePx;
 
-			byte tilemapPixel = 0;
+			byte bgPixel = 0;
 			if (BGEnable)
 			{
-				tilemapPixel = ReadTilemapPixel(BGTileMap, BGTileSrc, tileNumber, tilePX, tilePY);
+				bgPixel = ReadTilemapPixel(BGTileMap, BGTileSrc, tileNumber, tilePX, tilePY);
 			}
 			if (BGEnable && WindowEnable)
 			{
@@ -281,11 +286,24 @@ namespace Brackethouse.GB
 			{
 				objPixel = ReadObjectPixel();
 			}
+			bool objPriority = (objPixel & 0b1000_0000) != 0;
+			int objPaletteSelect = (objPixel & 0b0001_0000) >> 4;
+			byte activeObjPal = ObjectPalette[objPaletteSelect];
+			objPixel &= 3;
 			// Apply palette
-			byte bgPalPixel = (byte)((IO[BGPaletteAddress] & PaletteMask[tilemapPixel]) >> (tilemapPixel * 2));
+			byte bgPalPixel = (byte)((BackgroundPalette & PaletteMask[bgPixel]) >> (bgPixel * 2));
+			byte objPalPixel = (byte)((activeObjPal & PaletteMask[objPixel]) >> (objPixel * 2));
 
-			byte finalPixel = objPixel == 0 ? bgPalPixel : objPixel;
-			finalPixel &= 3;
+			byte finalPixel = bgPalPixel;
+			if (objPixel > 0)
+			{
+				finalPixel = objPalPixel;
+			}
+			if (objPriority && bgPixel > 0)
+			{
+				finalPixel = bgPalPixel;
+			}
+			
 			Display.SetPixel(PixelX, PixelY, finalPixel);
 		}
 		/// <summary>
@@ -314,10 +332,10 @@ namespace Brackethouse.GB
 					minX = x;
 					byte tileIndex = OAM[objStart + 2];
 					byte flags = OAM[objStart + 3];
-					byte priority = (byte)((flags & 0b1000_0000));
+					byte priority = (byte)(flags & 0b1000_0000);
 					byte yFlip = (byte)((flags & 0b0100_0000) >> 6);
 					byte xFlip = (byte)((flags & 0b0010_0000) >> 5);
-					byte palet = (byte)((flags & 0b0001_0000));
+					byte palet = (byte)(flags & 0b0001_0000);
 
 					byte tileX = (byte)(PixelX - (x - ObjOffsetX));
 					byte tileY = (byte)(PixelY - (y - ObjOffsetY));
