@@ -114,6 +114,10 @@ namespace Brackethouse.GB
 			IO = io;
 			Display = dsp;
 		}
+		/// <summary>
+		/// Call after each CPU instruction.
+		/// </summary>
+		/// <param name="tick">ticks from the CPU, for synchronization.</param>
 		public void Step(ushort tick)
 		{
 			CheckLCDControl();
@@ -136,6 +140,9 @@ namespace Brackethouse.GB
 			UpdateLCDStatus();
 			IO[LYAddress] = PixelY;
 		}
+		/// <summary>
+		/// PPU sub-step.
+		/// </summary>
 		void Dot()
 		{
 			// https://gbdev.io/pandocs/Rendering.html
@@ -265,7 +272,7 @@ namespace Brackethouse.GB
 			{
 				tilemapPixel = ReadTilemapPixel(BGTileMap, BGTileSrc, tileNumber, tilePX, tilePY);
 			}
-			if (WindowEnable)
+			if (BGEnable && WindowEnable)
 			{
 
 			}
@@ -287,67 +294,67 @@ namespace Brackethouse.GB
 		/// <returns>Bits 0 and 1 are color index. Bits 4 and 7 are the palette and priority bits from the object properties.</returns>
 		public byte ReadObjectPixel()
 		{
+			int height = ObjBaseHeight;
+			if (ObjectSize)
+			{
+				height += ObjBaseHeight;
+			}
 			byte minX = byte.MaxValue;
-			int objIndex = -1;
+			byte pixel = 0;
+			byte pxAttrib = 0;
 			for (int i = 0; i < LineObjectCount; i++)
 			{
 				byte objStart = (byte)(LineObjects[i] * ObjByteLength);
-				byte x = OAM[objStart + 1];
-
-				if (x < minX && PixelX >= x - ObjOffsetX && PixelX < x - ObjOffsetX + ObjWidth)
-				{
-					minX = x;
-					objIndex = i;
-				}
-			}
-			if (objIndex >= 0)
-			{
-				int height = ObjBaseHeight;
-				if (ObjectSize)
-				{
-					height += ObjBaseHeight;
-				}
-				byte objStart = (byte)(LineObjects[objIndex] * ObjByteLength);
 				byte y = OAM[objStart];
 				byte x = OAM[objStart + 1];
-				byte tileIndex = OAM[objStart + 2];
-				byte flags = OAM[objStart + 3];
-				byte priority = (byte)((flags & 0b1000_0000));
-				byte yFlip = (byte)((flags & 0b0100_0000) >> 6);
-				byte xFlip = (byte)((flags & 0b0010_0000) >> 5);
-				byte palet = (byte)((flags & 0b0001_0000));
 
-				byte tileX = (byte)(PixelX - (x - ObjOffsetX));
-				byte tileY = (byte)(PixelY - (y - ObjOffsetY));
-				tileX = (byte)((ObjWidth - 1) - tileX);
-				tileX = (byte)Math.Abs((ObjWidth - 1) * xFlip - tileX);
-				tileY = (byte)Math.Abs((height - 1) * yFlip - tileY);
-				if (ObjectSize)
+				bool objectCoversPixel = PixelX >= x - ObjOffsetX && PixelX < x - ObjOffsetX + ObjWidth;
+				if (objectCoversPixel && (pixel == 0 || x < minX))
 				{
-					// For 16 pixel tall objects, control which object is read from.
-					//https://gbdev.io/pandocs/OAM.html#byte-2--tile-index
-					if (tileY < ObjBaseHeight)
+					minX = x;
+					byte tileIndex = OAM[objStart + 2];
+					byte flags = OAM[objStart + 3];
+					byte priority = (byte)((flags & 0b1000_0000));
+					byte yFlip = (byte)((flags & 0b0100_0000) >> 6);
+					byte xFlip = (byte)((flags & 0b0010_0000) >> 5);
+					byte palet = (byte)((flags & 0b0001_0000));
+
+					byte tileX = (byte)(PixelX - (x - ObjOffsetX));
+					byte tileY = (byte)(PixelY - (y - ObjOffsetY));
+					tileX = (byte)((ObjWidth - 1) - tileX);
+					tileX = (byte)Math.Abs((ObjWidth - 1) * xFlip - tileX);
+					tileY = (byte)Math.Abs((height - 1) * yFlip - tileY);
+					if (ObjectSize)
 					{
-						tileIndex &= 0b1111_1110;
+						// For 16 pixel tall objects, control which object is read from.
+						//https://gbdev.io/pandocs/OAM.html#byte-2--tile-index
+						if (tileY < ObjBaseHeight)
+						{
+							tileIndex &= 0b1111_1110;
+						}
+						else
+						{
+							tileIndex |= 0b0000_0001;
+						}
 					}
-					else
+					ushort tileStart = (ushort)(0x8000 + tileIndex * 16);
+
+					byte bitMask = (byte)(1 << tileX);
+					ushort byte1 = (ushort)(tileStart + tileY * 2);
+					ushort byte2 = (ushort)(byte1 + 1);
+					byte newpixel = (byte)((SelfReadVRAM(byte1) & bitMask) >> tileX);
+					newpixel |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tileX) << 1);
+					if (newpixel != 0)
 					{
-						tileIndex |= 0b0000_0001;
+						pixel = newpixel;
+						pxAttrib = 0;
+						pxAttrib |= priority;
+						pxAttrib |= palet;
 					}
 				}
-				ushort tileStart = (ushort)(0x8000 + tileIndex * 16);
-
-				byte bitMask = (byte)(1 << tileX);
-				ushort byte1 = (ushort)(tileStart + tileY * 2);
-				ushort byte2 = (ushort)(byte1 + 1);
-				byte data = (byte)((SelfReadVRAM(byte1) & bitMask) >> tileX);
-				data |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tileX) << 1);
-
-				data |= priority;
-				data |= palet;
-				return data;
 			}
-			return 0;
+			pixel |= pxAttrib;
+			return pixel;
 		}
 		byte ReadTilemapPixel(bool Altmap, bool altTiles, ushort mapTileIndex, byte x, byte y)
 		{
@@ -365,7 +372,7 @@ namespace Brackethouse.GB
 			{
 				tileStart = (ushort)(0x8000 + tileIndex * 16);
 			}
-			x = (byte)(7 - x);
+			x = (byte)((ObjWidth - 1) - x);
 			byte bitMask = (byte)(1 << x);
 			ushort byte1 = (ushort)(tileStart + y * 2);
 			ushort byte2 = (ushort)(byte1 + 1);
@@ -425,7 +432,7 @@ namespace Brackethouse.GB
 					int tilePY = y % tileSize;
 
 					ushort tileStart = (ushort)(0x8000 + tileY * 16 * 16 + tileX * 16);
-					tilePX = 7 - tilePX;
+					tilePX = (ObjWidth - 1) - tilePX;
 					byte bitMask = (byte)(1 << tilePX);
 					ushort byte1 = (ushort)(tileStart + tilePY * 2);
 					ushort byte2 = (ushort)(byte1 + 1);
