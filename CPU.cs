@@ -1211,7 +1211,7 @@ namespace Brackethouse.GB
 		void SetFlag(Flags flag, bool value)
 		{
 			Registers[flag] = value;
-			}
+		}
 		#endregion
 		/// <summary>
 		/// Initialize OpCodes and registers
@@ -1239,23 +1239,23 @@ namespace Brackethouse.GB
 				Halted = false;
 				if (InterruptMasterEnable)
 				{
-				// Do interrupt here.
-				for (int i = 0; i < InterruptTargets.Length; i++)
-				{
-					byte checkBit = 1;
-					checkBit <<= i;
-					if ((checkBit & interruptByte) == checkBit)
+					// Do interrupt here.
+					for (int i = 0; i < InterruptTargets.Length; i++)
 					{
-						InterruptMasterEnable = false;
-						Memory[InterruptFlag] ^= checkBit;
+						byte checkBit = 1;
+						checkBit <<= i;
+						if ((checkBit & interruptByte) == checkBit)
+						{
+							InterruptMasterEnable = false;
+							Memory[InterruptFlag] ^= checkBit;
 
-						Push(R16.PC);
-						Jump(InterruptTargets[i]);
-						TState += 20;
-						return;
+							Push(R16.PC);
+							Jump(InterruptTargets[i]);
+							TState += 20;
+							return;
+						}
 					}
 				}
-			}
 			}
 			if (Halted || Stopped)
 			{
@@ -1271,13 +1271,14 @@ namespace Brackethouse.GB
 			OpCodes[op].Invoke();
 			Registers[R16.PC] += (ushort)Math.Clamp(PCAdvance,0, 3);
 			// It's not entirely clear if the CB cycle is in addition to the CB op
-			// I think it is.
-			TState += OpCodeCycles[op];
-			TState += ConditionalTicks;
+			// Apparently it's not?
+			ushort tAdvance = OpCodeCycles[op];
+			tAdvance += ConditionalTicks;
 			if (op == 0xCB)
 			{
-				TState += CBCodeCycles[LastReadByte];
+				tAdvance = CBCodeCycles[LastReadByte];
 			}
+			TState += tAdvance;
 		}
 		// Instructions implemented according to this reference:
 		// https://rgbds.gbdev.io/docs/v0.9.1/gbz80.7
@@ -2115,7 +2116,7 @@ namespace Brackethouse.GB
 			int newVal = oldVal + (sbyte)e8;
 			Registers[R16.SP] = (ushort)newVal;
 			SetFlag(Flags.Zero, false);
-			SetFlag(Flags.Subtraction, false); 
+			SetFlag(Flags.Subtraction, false);
 			SetFlag(Flags.HalfCarry, ((oldVal & 0x0f) + (e8 & 0x0f)) >= 0x10);
 			SetFlag(Flags.Carry, (oldVal & 0xff) + e8 > 0xff);
 		}
