@@ -1,9 +1,11 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using Brackethouse.GB;
 using SDL3;
+using System.Runtime.InteropServices;
 
 const int TargetFrameDurationNS = 16740000;
 const int TargetFrameDurationNS60Hz = 16666667;
+bool Running = true;
 const string ProgramName = "Peewi's GB emulator!";
 GB boy = null;
 Console.WriteLine(ProgramName);
@@ -27,7 +29,32 @@ if (args.Length > 0)
 }
 if (gamePath == "")
 {
-
+	void cb(nint userdata, nint filelist, int filter)
+	{
+		if (filelist != IntPtr.Zero)
+		{
+			nint strPtr = Marshal.ReadIntPtr(filelist);
+			string? filepath = Marshal.PtrToStringUTF8(strPtr);
+			if (filepath != null)
+			{
+				gamePath = filepath;
+				boy = new GB(gamePath, renderer);
+				SDL.SetWindowTitle(window, $"{ProgramName} {boy.GameTitle}");
+			}
+			else
+			{
+				SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Error, "No file chosen", "No ROM file chosen. Shutting down.", window);
+				Running = false;
+			}
+		}
+		else
+		{
+			SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Error, "Error", SDL.GetError(), window);
+		}
+	}
+	SDL.DialogFileFilter gameBoyFilter = new("Game Boy ROM", "gb");
+	SDL.DialogFileFilter allFilter = new("all files", "*");
+	SDL.ShowOpenFileDialog(cb, 0, window, [gameBoyFilter, allFilter], 2, null, false);
 }
 else
 {
@@ -35,9 +62,8 @@ else
 	SDL.SetWindowTitle(window, $"{ProgramName} {boy.GameTitle}");
 }
 
-bool running = true;
 ulong sleepCompensation = 0;
-while (running)
+while (Running)
 {
 	ulong frameStart = SDL.GetTicksNS();
 	boy?.Step();
@@ -46,7 +72,7 @@ while (running)
 		SDL.EventType t = (SDL.EventType)e.Type;
 		if (t == SDL.EventType.Quit)
 		{
-			running = false;
+			Running = false;
 		}
 	}
 	ulong frameEnd = SDL.GetTicksNS();
