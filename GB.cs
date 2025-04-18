@@ -15,6 +15,7 @@ namespace Brackethouse.GB
 		Memory Memory;
 		PPU Graphics;
 		Joypad Input;
+		Serial Serial;
 		IORegisters IO;
 		int Frame = -1;
 		Stopwatch Time = new Stopwatch();
@@ -26,6 +27,7 @@ namespace Brackethouse.GB
 			IO = new IORegisters();
 			Input = new SDLJoypad(IO);
 			Graphics = new PPU(IO, Display);
+			Serial = new Serial(IO);
 			Memory = new Memory(Cart, Graphics, IO);
 			CPU = new CPU(Memory);
 			Time.Start();
@@ -37,6 +39,7 @@ namespace Brackethouse.GB
 			while (Frame == Graphics.Frame)
 			{
 				CPU.Step();
+				Serial.Step(CPU.TState);
 				Input.CPUStep();
 				Graphics.Step(CPU.TState);
 				IO.StepTimerRegisters(CPU.TState);
