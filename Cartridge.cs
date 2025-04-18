@@ -141,8 +141,8 @@ namespace Brackethouse.GB
 				return ROM[address];
 			}
 			int bank = Math.Max(BankSelect, 1);
-			address += (ushort)(0x4000 * (bank - 1));
-			return ROM[address];
+			int romAddress = address + (bankSize * (bank - 1));
+			return ROM[romAddress];
 		}
 		/// <summary>
 		/// Write to an address that belongs to the cartridge.
