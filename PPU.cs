@@ -345,15 +345,8 @@ namespace Brackethouse.GB
 					{
 						// For 16 pixel tall objects, control which object is read from.
 						//https://gbdev.io/pandocs/OAM.html#byte-2--tile-index
-						if (tileY < ObjBaseHeight)
-						{
 							tileIndex &= 0b1111_1110;
 						}
-						else
-						{
-							tileIndex |= 0b0000_0001;
-						}
-					}
 					ushort tileStart = (ushort)(0x8000 + tileIndex * 16);
 
 					byte bitMask = (byte)(1 << tileX);
