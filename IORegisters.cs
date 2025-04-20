@@ -38,6 +38,11 @@ namespace Brackethouse.GB
 
 		public IORegisters()
 		{
+			// initialize all registers to FF
+			for (int i = 0; i < IOMem.Length; i++)
+			{
+				IOMem[i] = 0xff;
+			}
 			// https://gbdev.io/pandocs/Power_Up_Sequence.html#hardware-registers
 			// Lets try setting all these to the DMG values
 			this[0xFF00] = 0xCF;
