@@ -425,7 +425,7 @@ namespace Brackethouse.GB
 			for (int i = 0; i < OAMSize; i++)
 			{
 				int yAddr = ObjectAttributeMemoryStart + ObjByteLength * i;
-				byte y = (byte)(SelfReadOAM(yAddr) - ObjOffsetY);
+				int y = SelfReadOAM(yAddr) - ObjOffsetY;
 				if (PixelY >= y && PixelY < y + objectHeight)
 				{
 					// if object found
