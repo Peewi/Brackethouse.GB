@@ -28,9 +28,6 @@ namespace Brackethouse.GB
 		const ushort IORegistersStart = 0xFF00;
 		const ushort HighRAM = 0xFF80;
 		const ushort InterruptEnableRegister = 0xFFFF;
-		ushort PreviousCPUTick = 0;
-		int DIVTimer = 0;
-		int TIMATimer = 0;
 		public Memory(Cartridge cart, PPU gfx, IORegisters io)
 		{
 			Cart = cart;

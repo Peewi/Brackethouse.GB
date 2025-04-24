@@ -7,7 +7,7 @@ const int TargetFrameDurationNS = 16740000;
 const int TargetFrameDurationNS60Hz = 16666667;
 bool Running = true;
 const string ProgramName = "Peewi's GB emulator!";
-GB boy = null;
+GB? boy = null;
 Console.WriteLine(ProgramName);
 if (!SDL.Init(SDL.InitFlags.Video))
 {

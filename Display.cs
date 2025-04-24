@@ -56,6 +56,8 @@ namespace Brackethouse.GB
             SDL.RenderDebugText(Renderer, 1, 1, $"Frame {FrameCount++}");
 #endif
             SDL.RenderPresent(Renderer);
+			SDL.SetRenderDrawColor(Renderer, Shades[0], Shades[0], Shades[0], 255);
+			SDL.RenderClear(Renderer);
 		}
 	}
 }
