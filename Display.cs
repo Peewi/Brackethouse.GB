@@ -47,8 +47,9 @@ namespace Brackethouse.GB
 		{
             for (int i = 0; i < 4; i++)
 			{
+                int pointDrawCount = Math.Min(PxCounts[i], PxCoords[i].Length);
 				SDL.SetRenderDrawColor(Renderer, Shades[i], Shades[i], Shades[i], 255);
-                SDL.RenderPoints(Renderer, PxCoords[i], PxCounts[i]);
+                SDL.RenderPoints(Renderer, PxCoords[i], pointDrawCount);
                 PxCounts[i] = 0;
 			}
 #if DEBUG
