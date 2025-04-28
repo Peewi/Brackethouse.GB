@@ -20,9 +20,9 @@ namespace Brackethouse.GB
 		int Frame = -1;
 		Stopwatch Time = new Stopwatch();
 		public string GameTitle => Cart.Title;
-		public GB(string cartPath, nint renderer)
+		public GB(string cartPath, string savePath, nint renderer)
 		{
-			Cart = Cartridge.FromFile(cartPath);
+			Cart = Cartridge.FromFile(cartPath, savePath);
 			Display = new SDLDisplay(renderer);
 			IO = new IORegisters();
 			Input = new SDLJoypad(IO);
@@ -49,6 +49,14 @@ namespace Brackethouse.GB
 			{
 				Console.WriteLine($"Frame {Frame}, time: {Time.Elapsed}");
 			}
+		}
+		/// <summary>
+		/// Save the contents of cartridge RAM to a file on disk.
+		/// </summary>
+		/// <param name="savePath">Path to save to.</param>
+		public void Save(string savePath)
+		{
+			Cart.SaveRAM(savePath);
 		}
 	}
 }

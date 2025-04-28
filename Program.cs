@@ -23,6 +23,7 @@ SDL.SetRenderLogicalPresentation(renderer, 160, 144, SDL.RendererLogicalPresenta
 SDL.SetWindowResizable(window, true);
 
 string gamePath = "";
+string savePath = "";
 if (args.Length > 0)
 {
 	gamePath = args[0];
@@ -38,8 +39,7 @@ if (gamePath == "")
 			if (filepath != null)
 			{
 				gamePath = filepath;
-				boy = new GB(gamePath, renderer);
-				SDL.SetWindowTitle(window, $"{ProgramName} {boy.GameTitle}");
+				StartGB(gamePath, renderer);
 			}
 			else
 			{
@@ -58,8 +58,7 @@ if (gamePath == "")
 }
 else
 {
-	boy = new GB(gamePath, renderer);
-	SDL.SetWindowTitle(window, $"{ProgramName} {boy.GameTitle}");
+	StartGB(gamePath, renderer);
 }
 
 ulong sleepCompensation = 0;
@@ -84,4 +83,14 @@ while (Running)
 		ulong actualSleep = SDL.GetTicksNS() - frameEnd;
 		sleepCompensation = actualSleep - desiredSleep;
 	}
+}
+boy?.Save(savePath);
+
+void StartGB(string path, nint renderer)
+{
+	string dir = Path.GetDirectoryName(path) ?? string.Empty;
+	string f = (Path.GetFileNameWithoutExtension(path) ?? string.Empty) + ".sav";
+	savePath = Path.Combine(dir, f);
+	boy = new GB(gamePath, savePath, renderer);
+	SDL.SetWindowTitle(window, $"{ProgramName} {boy.GameTitle}");
 }

@@ -45,10 +45,22 @@ namespace Brackethouse.GB
 			HuC1_RAM_BATTERY = 0xFF,
 		}
 		const ushort TypeAddress = 0x0147;
+		const ushort ROMSizeAddress = 0x0148;
+		const ushort RAMSizeAddress = 0x0149;
+		const ushort ROMBankSize = 0x4000;
+		const ushort RAMBankSize = 0x2000;
+		const ushort ExternalRAMStartAddress = 0xA000;
+		const ushort MBC2RAMSize = 512;
 		readonly CartridgeType Type;
+		readonly int ROMBankCount;
+		readonly int RAMBankCount;
 		public readonly string Title = "";
         readonly byte[] ROM;
-		int BankSelect = 1;
+        readonly byte[] RAM;
+		readonly bool Battery = false;
+		int ROMBankSelect = 1;
+		bool RAMEnable = false;
+		int RAMBankSelect = 0;
 		delegate void WriteHandlerDelegate(ushort address, byte value);
 		delegate byte ReadHandlerDelegate(ushort address);
 		readonly WriteHandlerDelegate WriteHandler;
@@ -59,17 +71,45 @@ namespace Brackethouse.GB
 			ReadHandler = ROMOnlyRead;
 			ROM = rom;
 			Type = (CartridgeType)Read(TypeAddress);
+			ROMBankCount = 2 << Read(ROMSizeAddress);
+			// https://gbdev.io/pandocs/The_Cartridge_Header.html#0149--ram-size
+			switch (Read(RAMSizeAddress))
+			{
+				case 0:
+				case 1:
+					RAMBankCount = 0;
+					break;
+				case 2:
+					RAMBankCount = 1;
+					break;
+				case 3:
+					RAMBankCount = 4;
+					break;
+				case 4:
+					RAMBankCount = 16;
+					break;
+				case 5:
+					RAMBankCount = 8;
+					break;
+				default:
+					break;
+			}
+			RAM = new byte[RAMBankSize * RAMBankCount];
 			if (Type == CartridgeType.MBC1
 				|| Type == CartridgeType.MBC1_RAM
 				|| Type == CartridgeType.MBC1_RAM_BATTERY)
 			{
 				WriteHandler = MBC1Write;
 				ReadHandler = MBC1Read;
+				Battery = Type == CartridgeType.MBC1_RAM_BATTERY;
 			}
 			else if (Type == CartridgeType.MBC2
 				|| Type == CartridgeType.MBC2_BATTERY)
 			{
-
+				RAM = new byte[MBC2RAMSize];
+				WriteHandler = MBC2Write;
+				ReadHandler = MBC2Read;
+				Battery = Type == CartridgeType.MBC2_BATTERY;
 			}
 			else if (Type == CartridgeType.MBC3
 				|| Type == CartridgeType.MBC3_RAM
@@ -77,7 +117,11 @@ namespace Brackethouse.GB
 				|| Type == CartridgeType.MBC3_TIMER_BATTERY
 				|| Type == CartridgeType.MBC3_TIMER_RAM_BATTERY)
 			{
-
+				WriteHandler = MBC3Write;
+				ReadHandler = MBC3Read;
+				Battery = Type == CartridgeType.MBC3_RAM_BATTERY
+				|| Type == CartridgeType.MBC3_TIMER_BATTERY
+				|| Type == CartridgeType.MBC3_TIMER_RAM_BATTERY;
 			}
 			else if (Type == CartridgeType.MBC5
 				|| Type == CartridgeType.MBC5_RAM
@@ -86,15 +130,19 @@ namespace Brackethouse.GB
 				|| Type == CartridgeType.MBC5_RUMBLE_RAM
 				|| Type == CartridgeType.MBC5_RUMBLE_RAM_BATTERY)
 			{
-
+				WriteHandler = MBC5Write;
+				ReadHandler = MBC5Read;
+				Battery = Type == CartridgeType.MBC5_RAM_BATTERY
+					|| Type == CartridgeType.MBC5_RUMBLE_RAM_BATTERY;
 			}
 			else if (Type == CartridgeType.MBC6)
 			{
-
+				throw new NotImplementedException();
 			}
 			else if (Type == CartridgeType.MBC7_SENSOR_RUMBLE_RAM_BATTERY)
 			{
-
+				Battery = true;
+				throw new NotImplementedException();
 			}
 			for (int i = 0x0134; i < 0x0144; i++)
 			{
@@ -104,12 +152,31 @@ namespace Brackethouse.GB
 		/// <summary>
 		/// Make a cartridge from a file.
 		/// No checking is done to verify that this is actually a Game Boy ROM.
+		/// If the cartridge has RAM and a battery, and a .sav file of appropriate size exists next to the ROM file, RAM is initialized with the contents of the .sav file.
 		/// </summary>
-		/// <param name="path">File path.</param>
+		/// <param name="romPath">File path.</param>
 		/// <returns>Cartridge.</returns>
-		public static Cartridge FromFile(string path)
+		public static Cartridge FromFile(string romPath, string savePath)
 		{
-			return new Cartridge(File.ReadAllBytes(path));
+			Cartridge cart = new(File.ReadAllBytes(romPath));
+			if (cart.Battery && cart.RAM.Length > 0)
+			{
+				if (!File.Exists(savePath))
+				{
+					return cart;
+				}
+				long size = new FileInfo(savePath).Length;
+				if (cart.RAM.Length != size)
+				{
+					return cart;
+				}
+				byte[] save = File.ReadAllBytes(savePath);
+				for (int i = 0; i < cart.RAM.Length; i++)
+				{
+					cart.RAM[i] = save[i];
+				}
+			}
+			return cart;
 		}
 		/// <summary>
 		/// Makes a cartridge full of zeroes
@@ -118,6 +185,22 @@ namespace Brackethouse.GB
 		public static Cartridge Empty()
 		{
 			return new Cartridge(new byte[ushort.MaxValue + 1]);
+		}
+		/// <summary>
+		/// Save the contents of cartridge RAM to a file on disk.
+		/// </summary>
+		/// <param name="savePath">Path to save to.</param>
+		public void SaveRAM(string savePath)
+		{
+			if (RAM.Length == 0)
+			{
+				return;
+			}
+			if (!Battery)
+			{
+				return;
+			}
+			File.WriteAllBytes(savePath, RAM);
 		}
 		/// <summary>
 		/// Read from the cartridge.
@@ -131,18 +214,36 @@ namespace Brackethouse.GB
 		}
 		byte ROMOnlyRead(ushort address)
 		{
+			if (AddressIsExternalRAM(address))
+			{
+				return 0xff;
+			}
 			return ROM[address];
 		}
 		byte MBC1Read(ushort address)
 		{
-			const ushort bankSize = 0x4000;
-			if (address < bankSize)
+			if (address < ROMBankSize)
 			{
 				return ROM[address];
 			}
-			int bank = Math.Max(BankSelect, 1);
-			int romAddress = address + (bankSize * (bank - 1));
-			return ROM[romAddress];
+			if (address < ROMBankSize * 2)
+			{
+				int bank = Math.Max(ROMBankSelect, 1);
+				bank %= ROMBankCount;
+				int romAddress = address + (ROMBankSize * (bank - 1));
+				return ROM[romAddress];
+			}
+			if (AddressIsExternalRAM(address))
+			{
+				if (!RAMEnable)
+				{
+					return 0xff;
+				}
+				int ramAddress = address - ExternalRAMStartAddress;
+				ramAddress += RAMBankSize * RAMBankSelect;
+				return RAM[ramAddress];
+			}
+			return 0xff;
 		}
 		/// <summary>
 		/// Write to an address that belongs to the cartridge.
@@ -170,15 +271,40 @@ namespace Brackethouse.GB
 			const ushort RAMEnableEnd = 0x1fff;
 			const ushort ROMBankStart = 0x2000;
 			const ushort ROMBankEnd = 0x3fff;
+			const ushort SecondaryBankStart = 0x4000;
+			const ushort SecondaryBankEnd = 0x5fff;
+			const ushort BankModeStart = 0x6000;
+			const ushort BankModeEnd = 0x7fff;
 			if (address <= RAMEnableEnd)
 			{
-				//throw new NotImplementedException();
+				byte enableMask = 0x0a;
+				RAMEnable = (value & enableMask) == enableMask;
+				return;
 			}
 			if (address >= ROMBankStart && address <= ROMBankEnd)
 			{
 				const byte fiveBitMask = 0b0001_1111;
 				value &= fiveBitMask;
-				BankSelect = value;
+				ROMBankSelect = value;
+				return;
+			}
+			if (address >= SecondaryBankStart && address <= SecondaryBankEnd)
+			{
+
+			}
+			if (address >= BankModeStart && address <= BankModeEnd)
+			{
+
+			}
+			if (AddressIsExternalRAM(address))
+			{
+				if (!RAMEnable)
+				{
+					return;
+				}
+				int ramAddress = address - ExternalRAMStartAddress;
+				ramAddress += RAMBankSize * RAMBankSelect;
+				RAM[ramAddress] = value;
 			}
 		}
 		static public bool AddressIsCartridge(ushort address)
@@ -188,8 +314,8 @@ namespace Brackethouse.GB
 		static public bool AddressIsROM(ushort address)
 		{
 			const ushort ROMStart = 0x0000;
-			const ushort ROMBank1End = 0x3FFF;
-			return address >= ROMStart && address <= ROMBank1End;
+			const ushort SwitchableROMBankEnd = 0x7FFF;
+			return address >= ROMStart && address <= SwitchableROMBankEnd;
 		}
 		static public bool AddressIsExternalRAM(ushort address)
 		{
@@ -197,5 +323,87 @@ namespace Brackethouse.GB
 			const ushort ExternalRAMEnd = 0xBFFF;
 			return address >= ExternalRAM && address <= ExternalRAMEnd;
 		}
+		#region MBC2
+		/// <summary>
+		/// MBC2 cart read. ROM or RAM depending on address.
+		/// </summary>
+		/// <param name="address">Memory address</param>
+		/// <returns>A value that was read</returns>
+		byte MBC2Read(ushort address)
+		{
+			if (address < ROMBankSize)
+			{
+				return ROM[address];
+			}
+			if (address < ROMBankSize * 2)
+			{
+				int bank = Math.Max(ROMBankSelect, 1);
+				bank %= ROMBankCount;
+				int romAddress = address + (ROMBankSize * (bank - 1));
+				return ROM[romAddress];
+			}
+			// If we got to here, surely it must be RAM.
+			if (RAMEnable)
+			{
+				int ramAddr = address - ExternalRAMStartAddress;
+				ramAddr %= MBC2RAMSize;
+				const byte mbc2RAMMask = 0x0f;
+				return (byte)(RAM[ramAddr] & mbc2RAMMask);
+			}
+			return 0xff;
+		}
+		/// <summary>
+		/// MBC2 cart write. Bank select or RAM?
+		/// </summary>
+		/// <param name="address">Memory address</param>
+		/// <param name="value">Value being written</param>
+		void MBC2Write(ushort address, byte value)
+		{
+			const ushort ROMBankEnd = 0x3fff;
+			if (address >= ROMBankEnd)
+			{
+				const ushort RAMFlagAddrMask = 0x10;
+				if ((address & RAMFlagAddrMask) == 0)
+				{
+					byte enableMask = 0x0a;
+					RAMEnable = (value & enableMask) == enableMask;
+					return;
+				}
+				const byte bankMask = 0x0f;
+				ROMBankSelect = Math.Max(1, value & bankMask);
+				return;
+			}
+			// If we got to here, surely it must be RAM.
+			if (RAMEnable)
+			{
+				int ramAddr = address - ExternalRAMStartAddress;
+				ramAddr %= MBC2RAMSize;
+				const byte mbc2RAMMask = 0x0f;
+				RAM[ramAddr] = (byte)(value & mbc2RAMMask);
+			}
+		}
+		#endregion
+		#region MBC3
+		byte MBC3Read(ushort address)
+		{
+			return 0;
+		}
+
+		void MBC3Write(ushort address, byte value)
+		{
+
+		}
+		#endregion
+		#region MBC5
+		byte MBC5Read(ushort address)
+		{
+			return 0;
+		}
+
+		void MBC5Write(ushort address, byte value)
+		{
+
+		}
+		#endregion
 	}
 }

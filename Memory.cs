@@ -47,7 +47,7 @@ namespace Brackethouse.GB
 		public byte Read(int address)
 		{
 			ushort uadr = (ushort)address;
-			if (address <= SwitchableBankEnd)
+			if (Cartridge.AddressIsCartridge(uadr))
 			{
 				return Cart.Read(uadr);
 			}
@@ -73,7 +73,7 @@ namespace Brackethouse.GB
 		public void Write(int address, byte value)
 		{
 			ushort uadr = (ushort)address;
-			if (address <= SwitchableBankEnd)
+			if (Cartridge.AddressIsCartridge(uadr))
 			{
 				Cart.Write(uadr, value);
 				return;
