@@ -61,6 +61,7 @@ namespace Brackethouse.GB
 		int ROMBankSelect = 1;
 		bool RAMEnable = false;
 		int RAMBankSelect = 0;
+		bool MBC1AdvancedMode = false;
 		delegate void WriteHandlerDelegate(ushort address, byte value);
 		delegate byte ReadHandlerDelegate(ushort address);
 		readonly WriteHandlerDelegate WriteHandler;
@@ -224,12 +225,23 @@ namespace Brackethouse.GB
 		{
 			if (address < ROMBankSize)
 			{
-				return ROM[address];
+				int romAddress = address;
+				if (MBC1AdvancedMode)
+				{
+					int bank = RAMBankSelect << 5;
+					romAddress += ROMBankSize * bank;
+				}
+				return ROM[romAddress];
 			}
 			if (address < ROMBankSize * 2)
 			{
 				int bank = Math.Max(ROMBankSelect, 1);
 				bank %= ROMBankCount;
+				if (ROMBankCount > 32)
+				{
+					// There are more ROM banks than can be addressed with five bits.
+					bank += RAMBankSelect << 5;
+				}
 				int romAddress = address + (ROMBankSize * (bank - 1));
 				return ROM[romAddress];
 			}
@@ -240,7 +252,10 @@ namespace Brackethouse.GB
 					return 0xff;
 				}
 				int ramAddress = address - ExternalRAMStartAddress;
-				ramAddress += RAMBankSize * RAMBankSelect;
+				if (MBC1AdvancedMode)
+				{
+					ramAddress += RAMBankSize * RAMBankSelect;
+				}
 				return RAM[ramAddress];
 			}
 			return 0xff;
@@ -290,11 +305,16 @@ namespace Brackethouse.GB
 			}
 			if (address >= SecondaryBankStart && address <= SecondaryBankEnd)
 			{
-
+				const byte twoBitMask = 0b0000_0011;
+				value &= twoBitMask;
+				RAMBankSelect = value;
+				return;
 			}
 			if (address >= BankModeStart && address <= BankModeEnd)
 			{
-
+				const byte oneBitMask = 0b0000_0001;
+				MBC1AdvancedMode = (value & oneBitMask) == oneBitMask;
+				return;
 			}
 			if (AddressIsExternalRAM(address))
 			{
@@ -303,7 +323,10 @@ namespace Brackethouse.GB
 					return;
 				}
 				int ramAddress = address - ExternalRAMStartAddress;
-				ramAddress += RAMBankSize * RAMBankSelect;
+				if (RAMBankCount > 1 && MBC1AdvancedMode)
+				{
+					ramAddress += RAMBankSize * RAMBankSelect;
+				}
 				RAM[ramAddress] = value;
 			}
 		}
