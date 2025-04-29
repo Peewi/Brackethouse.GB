@@ -52,7 +52,7 @@ if (gamePath == "")
 			SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Error, "Error", SDL.GetError(), window);
 		}
 	}
-	SDL.DialogFileFilter gameBoyFilter = new("Game Boy ROM", "gb");
+	SDL.DialogFileFilter gameBoyFilter = new("Game Boy ROM", "gb;gbc");
 	SDL.DialogFileFilter allFilter = new("all files", "*");
 	SDL.ShowOpenFileDialog(cb, 0, window, [gameBoyFilter, allFilter], 2, null, false);
 }
