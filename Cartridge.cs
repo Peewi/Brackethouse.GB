@@ -382,10 +382,9 @@ namespace Brackethouse.GB
 		/// <param name="value">Value being written</param>
 		void MBC2Write(ushort address, byte value)
 		{
-			const ushort ROMBankEnd = 0x3fff;
-			if (address >= ROMBankEnd)
+			if (address < ROMBankSize)
 			{
-				const ushort RAMFlagAddrMask = 0x10;
+				const ushort RAMFlagAddrMask = 0x0100;
 				if ((address & RAMFlagAddrMask) == 0)
 				{
 					byte enableMask = 0x0a;
@@ -409,23 +408,136 @@ namespace Brackethouse.GB
 		#region MBC3
 		byte MBC3Read(ushort address)
 		{
-			return 0;
+			if (address < ROMBankSize)
+			{
+				return ROM[address];
+			}
+			if (address < ROMBankSize * 2)
+			{
+				int bank = Math.Max(ROMBankSelect, 1);
+				bank %= ROMBankCount;
+				int romAddress = address + (ROMBankSize * (bank - 1));
+				return ROM[romAddress];
+			}
+			// If we got to here, surely it must be RAM.
+			if (RAMEnable && RAMBankSelect <= RAMBankCount)
+			{
+				int ramAddr = address - ExternalRAMStartAddress;
+				ramAddr += RAMBankSize * RAMBankSelect;
+				return RAM[ramAddr];
+			}
+			if (RAMEnable && RAMBankSelect > RAMBankCount)
+			{
+				// Clock registers
+				// TODO
+			}
+			return 0xff;
 		}
 
 		void MBC3Write(ushort address, byte value)
 		{
-
+			const ushort RAMEnableEnd = 0x1fff;
+			if (address <= RAMEnableEnd)
+			{ // RAM AND timer enabling
+				RAMEnable = value == 0x0a;
+				return;
+			}
+			if (address < ROMBankSize)
+			{
+				const byte sevenBitMask = 0x7f;
+				ROMBankSelect = Math.Max(1, value & sevenBitMask);
+				return;
+			}
+			if (address <= 0x5fff)
+			{
+				// RAM bank
+				RAMBankSelect = value;
+				return;
+			}
+			if (address <= 0x7fff)
+			{
+				// Latch clock
+				// TODO
+			}
+			if (address >= ExternalRAMStartAddress && address <= 0xbfff)
+			{
+				if (!RAMEnable)
+				{
+					return;
+				}
+				if (ROMBankSelect > ROMBankCount)
+				{
+					// Clock registers
+					// TODO
+				}
+				int ramAddr = address - ExternalRAMStartAddress;
+				ramAddr += RAMBankSize * RAMBankSelect;
+				RAM[ramAddr] = value;
+			}
 		}
 		#endregion
 		#region MBC5
 		byte MBC5Read(ushort address)
 		{
-			return 0;
+			if (address < ROMBankSize)
+			{
+				return ROM[address];
+			}
+			if (address < ROMBankSize * 2)
+			{
+				int bank = Math.Max(ROMBankSelect, 1);
+				bank %= ROMBankCount;
+				int romAddress = address + (ROMBankSize * (bank - 1));
+				return ROM[romAddress];
+			}
+			// If we got to here, surely it must be RAM.
+			if (RAMEnable && RAMBankSelect < RAMBankCount)
+			{
+				int ramAddr = address - ExternalRAMStartAddress;
+				ramAddr += RAMBankSize * RAMBankSelect;
+				return RAM[ramAddr];
+			}
+			return 0xff;
 		}
 
 		void MBC5Write(ushort address, byte value)
 		{
-
+			if (address < 0x2000)
+			{
+				byte enableMask = 0x0a;
+				RAMEnable = (value & enableMask) == enableMask;
+				return;
+			}
+			if (address < 0x3000)
+			{
+				// Set lower 8 bits of ROM bank select.
+				ROMBankSelect &= 0xff00;
+				ROMBankSelect |= value;
+				return;
+			}
+			if (address < 0x4000)
+			{
+				// Set 9th bit of ROM bank select.
+				ROMBankSelect &= 0xff;
+				ROMBankSelect |= (value & 0x01) << 8;
+				return;
+			}
+			if (address < 0x6000)
+			{
+				// Select RAM bank. Rumble not implemented.
+				RAMBankSelect = value;
+				return;
+			}
+			if (address >= ExternalRAMStartAddress && address <= 0xbfff)
+			{
+				if (!RAMEnable)
+				{
+					return;
+				}
+				int ramAddr = address - ExternalRAMStartAddress;
+				ramAddr += RAMBankSize * RAMBankSelect;
+				RAM[ramAddr] = value;
+			}
 		}
 		#endregion
 	}
