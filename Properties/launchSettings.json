@@ -2,10 +2,6 @@
   "profiles": {
     "Brackethouse.GB": {
       "commandName": "Project"
-    },
-    "Tetris": {
-      "commandName": "Project",
-      "commandLineArgs": "\"D:\\ROM\\Tetris (World) (Rev 1).gb\""
     }
   }
 }
