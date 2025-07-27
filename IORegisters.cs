@@ -109,7 +109,7 @@ namespace Brackethouse.GB
 			int ticks = tick - PreviousCPUTick;
 			if (ticks < 0)
 			{
-				ticks += ushort.MaxValue;
+				ticks += ushort.MaxValue + 1;
 			}
 
 			bool TACEnable = (this[TimerControlAddress] & 0b00_00_01_00) != 0;

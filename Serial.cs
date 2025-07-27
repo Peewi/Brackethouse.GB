@@ -29,7 +29,7 @@ namespace Brackethouse.GB
 			int ticks = tick - PreviousCPUTick;
 			if (ticks < 0)
 			{
-				ticks += ushort.MaxValue;
+				ticks += ushort.MaxValue + 1;
 			}
 			const byte TransferStartMask = 0x81;
 			bool startTransfer = (IO[SerialControlAddress] & TransferStartMask) == TransferStartMask;
