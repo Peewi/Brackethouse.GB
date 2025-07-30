@@ -47,7 +47,6 @@ namespace Brackethouse.GB
 				IO.StepTimerRegisters(CPU.TState);
 				Audio.Step(CPU.TState);
 			}
-			Audio.FrameStep();
 			Display.Output();
 			if (Frame % 60 == 0)
 			{

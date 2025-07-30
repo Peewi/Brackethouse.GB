@@ -1,32 +1,33 @@
 ﻿using SDL3;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Brackethouse.GB
 {
-	internal class AudioChannel
+	internal abstract class AudioChannel
+	{
+		public bool On { get; protected set; }
+		public byte WaveValue { get; protected set; } = 0;
+		public abstract void Step(ushort tick);
+	}
+	internal class PulseWaveChannel : AudioChannel
 	{
 		const int DIVAPUMask = 0x10;
 		byte PrevDIVBit = 0;
 		byte DIVAPU = 0;
-		IORegisters IO;
+		readonly IORegisters IO;
 		ushort PreviousCPUTick = 0;
-		ushort StartAddress;
-		nint OutputStream;
+		readonly ushort StartAddress;
 		/// <summary>
 		/// The four different pulse wave duty cycles.
 		/// </summary>
-		byte[][] PulseWaves = [
+		readonly byte[][] PulseWaves = [
 			[000, 255, 255, 255, 255, 255, 255, 255],
 			[000, 000, 255, 255, 255, 255, 255, 255],
 			[000, 000, 000, 000, 255, 255, 255, 255],
 			[000, 000, 000, 000, 000, 000, 255, 255]
 			];
 		int WavePosition = 0;
-		bool Ch1On = false;
 		byte Timer = 0;
 		bool TimerEnable = false;
 		byte Volume = 255;
@@ -34,26 +35,16 @@ namespace Brackethouse.GB
 		int SweepCounter = 0;
 		int SweepDirection = 1;
 
-		const int CPUClock = 0x40_0000;
-		const double StupidNumber = CPUClock / (double)APU.OutputFrequency;
-		double TimeAvailable = 0;
-		byte[] OutputBuffer = new byte[APU.OutputFrequency / 30];
-		float BufferCursor = 0;
-		public AudioChannel(IORegisters io, ushort startAddr)
+		int PeriodDivider = 0;
+		int TickCounter = 0;
+		const int TicksPerPeriod = 4;
+		
+		public PulseWaveChannel(IORegisters io, ushort startAddr)
 		{
 			IO = io;
 			StartAddress = startAddr;
-			var spec = new SDL.AudioSpec()
-			{
-				Channels = 1,
-				Format = SDL.AudioFormat.AudioU8,
-				Freq = APU.OutputFrequency
-			};
-			nint stream = SDL.OpenAudioDeviceStream(SDL.AudioDeviceDefaultPlayback, spec, null, 0);
-			OutputStream = stream;
-			SDL.ResumeAudioStreamDevice(stream);
 		}
-		public void Step(ushort tick)
+		public override void Step(ushort tick)
 		{
 			int ticks = tick - PreviousCPUTick;
 			if (ticks < 0)
@@ -61,24 +52,48 @@ namespace Brackethouse.GB
 				ticks += ushort.MaxValue + 1;
 			}
 			PreviousCPUTick = tick;
-			TimeAvailable += ticks;
+			TickCounter += ticks;
 
+			int ch1InitialLength = IO[StartAddress + 1] & 0x3f;
+			byte ch1InitialVolume = (byte)(IO[StartAddress + 2] & 0xf0);
+
+			int ch1Period = IO[StartAddress + 3] + ((IO[StartAddress + 4] & 0x03) << 8);
+			bool ch1Trigger = (IO[StartAddress + 4] & 0x80) != 0;
+			bool ch1LengthEnable = (IO[StartAddress + 4] & 0x40) != 0;
+			if (ch1Trigger)
+			{
+				On = true;
+				TimerEnable = ch1LengthEnable;
+				PeriodDivider = ch1Period;
+				Volume = ch1InitialVolume;
+				if (Timer >= 64)
+				{
+					Timer = (byte)ch1InitialLength;
+				}
+				IO[StartAddress + 4] &= 0x7f;
+			}
+			if (!On)
+			{
+				WaveValue = 0;
+				return;
+			}
 			// https://gbdev.io/pandocs/Audio_details.html#div-apu
 			byte div = IO[0xff04];
 			div &= DIVAPUMask;
 			if (PrevDIVBit != 0 && div == 0)
 			{
 				DIVAPU++;
-				if ((DIVAPU % 8) == 0)
+				if ((DIVAPU % 8) == 0 && SweepPace != 0)
 				{
 					// Envelope sweep
-					if (SweepPace != 0)
+					SweepCounter++;
+					if (SweepCounter >= SweepPace)
 					{
-						SweepCounter++;
-						if (SweepCounter >= SweepPace)
+						SweepCounter = 0;
+						Volume = (byte)(Volume + SweepDirection);
+						if (Volume < 0x10)
 						{
-							SweepCounter = 0;
-							Volume = (byte)(Volume + SweepDirection);
+							On = false;
 						}
 					}
 				}
@@ -86,77 +101,34 @@ namespace Brackethouse.GB
 				{
 					// CH1 freq sweep
 				}
-				if ((DIVAPU % 2) == 0)
+				if ((DIVAPU % 2) == 0 && TimerEnable)
 				{
 					// Sound length
-
-					if (Ch1On && TimerEnable)
-					{
-						Timer++;
-						if (Timer >= 64)
-						{
-							Ch1On = false;
-						}
-					}
+					Timer++;
+					On &= Timer < 64;
 				}
 			}
 			PrevDIVBit = div;
-			int ch1WaveDuty = (IO[StartAddress + 1] & 0xc0) >> 6;
-			int ch1InitialLength = IO[StartAddress + 1] & 0x3f;
-
-			byte ch1InitialVolume = (byte)(IO[StartAddress + 2] & 0xf0);
+			//
 			int ch1SweepDir = (byte)(IO[StartAddress + 2] & 0x08) == 0 ? -0x10 : 0x10;
 			byte ch1SweepPace = (byte)(IO[StartAddress + 2] & 0x07);
 
 			SweepDirection = ch1SweepDir;
 			SweepPace = ch1SweepPace;
-
-			int ch1Period = IO[StartAddress + 3] + ((IO[StartAddress + 4] & 0x03) << 8);
-			bool ch1Trigger = (IO[StartAddress + 4] & 0x80) != 0;
-			bool ch1LengthEnable = (IO[StartAddress + 4] & 0x40) != 0;
-			if (ch1Trigger)
+			int ch1WaveDuty = (IO[StartAddress + 1] & 0xc0) >> 6;
+			while (TickCounter >= TicksPerPeriod)
 			{
-				Ch1On = true;
-				TimerEnable = ch1LengthEnable;
-				if (Timer >= 64)
+				TickCounter -= TicksPerPeriod;
+				PeriodDivider++;
+				const int _11bitOverflow = 0x800;
+				if (PeriodDivider >= _11bitOverflow)
 				{
-					Timer = (byte)ch1InitialLength;
+					PeriodDivider = ch1Period;
+					WavePosition++;
+					WavePosition %= PulseWaves[ch1WaveDuty].Length;
+					WaveValue = PulseWaves[ch1WaveDuty][WavePosition] == 0 ? (byte)0x00 : Volume;
 				}
 			}
-
-
-			float ch1Freq = 1048576 / (float)(2048 - ch1Period);
-			float freqRatio = (float)APU.OutputFrequency / ch1Freq;
-			if (Ch1On && TimeAvailable >= StupidNumber)
-			{
-				BufferOutput(ch1WaveDuty, freqRatio);
-				WavePosition++;
-				WavePosition %= PulseWaves[0].Length;
-				Volume = ch1InitialVolume;
-			}
-		}
-		void BufferOutput(int wave, float ratio)
-		{
-			int cursor = (int)Math.Floor(BufferCursor);
-			BufferCursor += ratio;
-			int cursorEnd = (int)Math.Floor(BufferCursor);
-			for (int i = cursor; i < cursorEnd; i++)
-			{
-				OutputBuffer[i % OutputBuffer.Length] = PulseWaves[wave][WavePosition] == 0 ? (byte)0x00 : Volume;
-				TimeAvailable -= StupidNumber;
-			}
-		}
-		/// <summary>
-		/// Call once every video frame.
-		/// </summary>
-		public void FrameStep()
-		{
-			if (Ch1On)
-			{
-				//SDL.ClearAudioStream(OutputStream);
-				SDL.PutAudioStreamData(OutputStream, OutputBuffer, (int)Math.Floor(BufferCursor));
-			}
-			BufferCursor = 0;
 		}
 	}
 }
