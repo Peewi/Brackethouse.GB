@@ -9,7 +9,7 @@ bool Running = true;
 const string ProgramName = "Peewi's GB emulator!";
 GB? boy = null;
 Console.WriteLine(ProgramName);
-if (!SDL.Init(SDL.InitFlags.Video))
+if (!SDL.Init(SDL.InitFlags.Video | SDL.InitFlags.Audio))
 {
 	SDL.LogError(SDL.LogCategory.System, $"SDL could not initialize: {SDL.GetError()}");
 	return;
