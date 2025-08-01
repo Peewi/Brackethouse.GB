@@ -65,16 +65,13 @@
 				ChannelEnable = true;
 				Volume = initialVolume;
 				LFSR = 0;
-				if (FrequencyTimer <= 0)
-				{
-					FrequencyTimer = clockDiv;
-				}
+				FrequencyTimer = clockDiv;
 				if (LengthTimer <= 0)
 				{
 					LengthTimer = 64 - initialLength;
 				}
 				LengthEnable = lengthEnable;
-				IO[StartAddress + 4] &= 0x7f;
+				IO[StartAddress + 3] &= 0x7f;
 			}
 			ShortLFSR = lfsrWidth;
 			EnvelopePace = sweepPace;
