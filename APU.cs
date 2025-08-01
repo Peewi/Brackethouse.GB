@@ -20,26 +20,38 @@ namespace Brackethouse.GB
 		const int CPUClock = 0x40_0000;
 		public const int OutputFrequency = 48_000;
 		const double TicksPerOutputSample = CPUClock / (double)OutputFrequency;
-		const int BufferSize = OutputFrequency / 60;
+		/// <summary>
+		/// How many bytes should be in the audio buffer.
+		/// </summary>
+		/// <remarks>On 60th of a second, one byte for each sound channel.</remarks>
+		const int BufferSize = OutputFrequency / 60 * 2;
 		double TimeAvailable = 0;
-
+		/// <summary>
+		/// Where we hold audio before giving it to SDL.
+		/// </summary>
 		byte[] OutputBuffer = new byte[BufferSize];
 		int BufferCursor = 0;
 		nint OutputStream;
 		AudioChannel[] Channels;
-		PulseWaveChannel Channel1;
+#if DEBUG
+		public int DEBUGNUM { get; private set; }
+		List<byte> DifferentOut = [0];
+#endif
 
 		public APU(IORegisters io)
 		{
 			IO = io;
-			Channel1 = new PulseWaveChannel(io, ch1Start);
-			Channels = [Channel1];
+			Channels = [
+				new PulseWaveChannel(io, ch1Start),
+				new PulseWaveChannel(io, ch2Start),
+				new WaveChannel(io, ch3Start),
+				];
 
 			var spec = new SDL.AudioSpec()
 			{
-				Channels = 1,
+				Channels = 2,
 				Format = SDL.AudioFormat.AudioU8,
-				Freq = APU.OutputFrequency
+				Freq = OutputFrequency
 			};
 			nint stream = SDL.OpenAudioDeviceStream(SDL.AudioDeviceDefaultPlayback, spec, null, 0);
 			OutputStream = stream;
@@ -96,9 +108,27 @@ namespace Brackethouse.GB
 				return;
 			}
 			TimeAvailable -= TicksPerOutputSample;
-			int mixSum = 0;
-			int mixCount = 0;
-			
+			MixAndBuffer();
+			if (BufferCursor >= BufferSize)
+			{
+				SDL.PutAudioStreamData(OutputStream, OutputBuffer, BufferCursor);
+				BufferCursor = 0;
+#if DEBUG
+				DEBUGNUM++;
+#endif
+			}
+		}
+
+		private void MixAndBuffer()
+		{
+			int leftSum = 0;
+			int leftCount = 0;
+			int rightSum = 0;
+			int rightCount = 0;
+
+			int leftVol = ((IO[MasterVolume] & 0x70) >> 4) + 1;
+			int rightVol = (IO[MasterVolume] & 0x07) + 1;
+
 			for (int i = 0; i < Channels.Length; i++)
 			{
 				int leftBit = 0x10 << i;
@@ -106,28 +136,36 @@ namespace Brackethouse.GB
 				bool leftOn = (IO[Panning] & leftBit) != 0;
 				bool rightOn = (IO[Panning] & rightBit) != 0;
 				AudioChannel chnl = Channels[i];
-				// TODO: proper stereo
-				if (chnl.On && (leftOn || rightOn))
+				if (chnl.On && leftOn)
 				{
-					mixCount++;
-					mixSum += chnl.WaveValue;
+					leftCount++;
+					leftSum += chnl.WaveValue * leftVol;
+				}
+				if (chnl.On && rightOn)
+				{
+					rightCount++;
+					rightSum += chnl.WaveValue * rightVol;
 				}
 			}
-			if (mixCount == 0)
+			if (leftCount == 0)
 			{
 				OutputBuffer[BufferCursor] = 0;
 			}
 			else
 			{
-				byte val = (byte)(mixSum / mixCount);
+				byte val = (byte)(leftSum / leftCount);
 				OutputBuffer[BufferCursor] = val;
 			}
-			BufferCursor++;
-			if (BufferCursor >= BufferSize)
+			if (rightCount == 0)
 			{
-				SDL.PutAudioStreamData(OutputStream, OutputBuffer, BufferCursor);
-				BufferCursor = 0;
+				OutputBuffer[BufferCursor] = 0;
 			}
+			else
+			{
+				byte val = (byte)(rightSum / rightCount);
+				OutputBuffer[BufferCursor + 1] = val;
+			}
+			BufferCursor += 2;
 		}
 	}
 }
