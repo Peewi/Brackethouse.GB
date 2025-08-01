@@ -95,7 +95,7 @@ namespace Brackethouse.GB
 			}
 			for (int i = 0; i < Channels.Length; i++)
 			{
-				if (Channels[i].On)
+				if (Channels[i].ChannelEnable)
 				{
 					masterControlValue |= (byte)(0x01 << i);
 				}
@@ -136,12 +136,16 @@ namespace Brackethouse.GB
 				bool leftOn = (IO[Panning] & leftBit) != 0;
 				bool rightOn = (IO[Panning] & rightBit) != 0;
 				AudioChannel chnl = Channels[i];
-				if (chnl.On && leftOn)
+				if (!chnl.DACPower || !chnl.ChannelEnable)
+				{
+					continue;
+				}
+				if (leftOn)
 				{
 					leftCount++;
 					leftSum += chnl.WaveValue * leftVol;
 				}
-				if (chnl.On && rightOn)
+				if (rightOn)
 				{
 					rightCount++;
 					rightSum += chnl.WaveValue * rightVol;

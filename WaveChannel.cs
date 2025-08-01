@@ -13,9 +13,9 @@
 		int TickCounter = 0;
 		const int TicksPerPeriod = 2;
 
-		byte LengthTimer = 0;
+		int LengthTimer = 0;
 		bool LengthEnable = false;
-		const byte LengthLimit = 64;
+		const int LengthLimit = 256;
 		int Volume;
 
 		const int DIVAPUMask = 0x10;
@@ -44,9 +44,11 @@
 			int period = IO[StartAddress + 3] + ((IO[StartAddress + 4] & 0x03) << 8);
 			bool trigger = (IO[StartAddress + 4] & 0x80) != 0;
 			bool lengthEnable = (IO[StartAddress + 4] & 0x40) != 0;
+			// Turn off if these bits are zero.
+			DACPower = (IO[StartAddress + 2] & 0xf8) != 0;
 			if (trigger)
 			{
-				On = true;
+				ChannelEnable = true;
 				if (LengthTimer >= LengthLimit)
 				{
 					LengthTimer = initialLength;
@@ -55,9 +57,10 @@
 				Volume = outLevel;
 				IO[StartAddress + 4] &= 0x7f;
 			}
-			On &= dacOnOff;
-			if (!On)
+			ChannelEnable &= DACPower;
+			if (!ChannelEnable)
 			{
+				WaveValue = 0;
 				return;
 			}
 			LengthEnable = lengthEnable;
@@ -71,7 +74,7 @@
 				{
 					// Sound length
 					LengthTimer++;
-					On &= LengthTimer < LengthLimit;
+					ChannelEnable &= LengthTimer < LengthLimit;
 				}
 			}
 			PrevDIVBit = div;
@@ -92,22 +95,12 @@
 					//byte negVol = (byte)-(Volume >> 1);
 					byte value = ReadSample(WavePosition);
 					value <<= 0;
-					switch (Volume)
+					int volShift = Volume - 1;
+					if (volShift == -1)
 					{
-						case 0:
-							value = 0;
-							break;
-						case 1:
-							break;
-						case 2:
-							value >>= 1;
-							break;
-						case 3:
-							value >>= 2;
-							break;
-						default:
-							break;
+						volShift = 4;
 					}
+					value >>= volShift;
 					WaveValue = value;
 				}
 			}

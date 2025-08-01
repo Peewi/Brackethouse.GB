@@ -12,10 +12,10 @@
 		/// The four different pulse wave duty cycles.
 		/// </summary>
 		readonly byte[][] PulseWaves = [
-			[000, 255, 255, 255, 255, 255, 255, 255],
-			[000, 000, 255, 255, 255, 255, 255, 255],
-			[000, 000, 000, 000, 255, 255, 255, 255],
-			[000, 000, 000, 000, 000, 000, 255, 255]
+			[0, 0, 0, 0, 0, 0, 0, 1],
+			[0, 0, 0, 0, 0, 0, 1, 1],
+			[0, 0, 0, 0, 1, 1, 1, 1],
+			[0, 0, 1, 1, 1, 1, 1, 1]
 			];
 		int WavePosition = 0;
 		byte Timer = 0;
@@ -50,9 +50,11 @@
 			int ch1Period = IO[StartAddress + 3] + ((IO[StartAddress + 4] & 0x03) << 8);
 			bool ch1Trigger = (IO[StartAddress + 4] & 0x80) != 0;
 			bool ch1LengthEnable = (IO[StartAddress + 4] & 0x40) != 0;
+			// Turn off if these bits are zero.
+			DACPower = (IO[StartAddress + 2] & 0xf8) != 0;
 			if (ch1Trigger)
 			{
-				On = true;
+				ChannelEnable = true;
 				TimerEnable = ch1LengthEnable;
 				PeriodDivider = ch1Period;
 				Volume = ch1InitialVolume;
@@ -62,9 +64,8 @@
 				}
 				IO[StartAddress + 4] &= 0x7f;
 			}
-			// Turn off if these bits are zero.
-			On &= (IO[StartAddress + 2] & 0xf8) != 0;
-			if (!On)
+			ChannelEnable &= DACPower;
+			if (!ChannelEnable)
 			{
 				WaveValue = 0;
 				return;
@@ -82,7 +83,8 @@
 					if (SweepCounter >= SweepPace)
 					{
 						SweepCounter = 0;
-						Volume = (byte)(Volume + SweepDirection);
+						int newVol = Math.Clamp(Volume + SweepDirection, 0, 15);
+						Volume = (byte)newVol;
 					}
 				}
 				if ((DIVAPU % 4) == 0)
@@ -93,7 +95,7 @@
 				{
 					// Sound length
 					Timer++;
-					On &= Timer < 64;
+					ChannelEnable &= Timer < 64;
 				}
 			}
 			PrevDIVBit = div;
