@@ -163,7 +163,7 @@ namespace Brackethouse.GB
 			}
 			if (rightCount == 0)
 			{
-				OutputBuffer[BufferCursor] = 0;
+				OutputBuffer[BufferCursor + 1] = 0;
 			}
 			else
 			{
