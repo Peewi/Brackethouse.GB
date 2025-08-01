@@ -45,6 +45,7 @@ namespace Brackethouse.GB
 				new PulseWaveChannel(io, ch1Start),
 				new PulseWaveChannel(io, ch2Start),
 				new WaveChannel(io, ch3Start),
+				new NoiseChannel(io, ch4Start)
 				];
 
 			var spec = new SDL.AudioSpec()
