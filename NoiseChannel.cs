@@ -59,7 +59,8 @@
 
 			bool trigger = (IO[StartAddress + 3] & 0x80) != 0;
 			bool lengthEnable = (IO[StartAddress + 3] & 0x40) != 0;
-			DACPower = (IO[StartAddress + 2] & 0xf8) != 0;
+
+			DACPower = (IO[StartAddress + 1] & 0xf8) != 0;
 			if (trigger)
 			{
 				ChannelEnable = true;
