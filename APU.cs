@@ -113,6 +113,7 @@ namespace Brackethouse.GB
 			if (BufferCursor >= BufferSize)
 			{
 				SDL.PutAudioStreamData(OutputStream, OutputBuffer, BufferCursor);
+				SDL.FlushAudioStream(OutputStream);
 				BufferCursor = 0;
 #if DEBUG
 				DEBUGNUM++;
@@ -122,13 +123,11 @@ namespace Brackethouse.GB
 
 		private void MixAndBuffer()
 		{
-			int leftSum = 0;
-			int leftCount = 0;
-			int rightSum = 0;
-			int rightCount = 0;
+			float leftSum = 0;
+			float rightSum = 0;
 
-			int leftVol = ((IO[MasterVolume] & 0x70) >> 4) + 1;
-			int rightVol = (IO[MasterVolume] & 0x07) + 1;
+			float leftVol = (((IO[MasterVolume] & 0x70) >> 4) + 1) / 2;
+			float rightVol = ((IO[MasterVolume] & 0x07) + 1) / 2;
 
 			for (int i = 0; i < Channels.Length; i++)
 			{
@@ -143,33 +142,15 @@ namespace Brackethouse.GB
 				}
 				if (leftOn)
 				{
-					leftCount++;
 					leftSum += chnl.WaveValue * leftVol;
 				}
 				if (rightOn)
 				{
-					rightCount++;
 					rightSum += chnl.WaveValue * rightVol;
 				}
 			}
-			if (leftCount == 0)
-			{
-				OutputBuffer[BufferCursor] = 0;
-			}
-			else
-			{
-				byte val = (byte)(leftSum / leftCount);
-				OutputBuffer[BufferCursor] = val;
-			}
-			if (rightCount == 0)
-			{
-				OutputBuffer[BufferCursor + 1] = 0;
-			}
-			else
-			{
-				byte val = (byte)(rightSum / rightCount);
-				OutputBuffer[BufferCursor + 1] = val;
-			}
+			OutputBuffer[BufferCursor] = (byte)leftSum;
+			OutputBuffer[BufferCursor + 1] = (byte)rightSum;
 			BufferCursor += 2;
 		}
 	}
