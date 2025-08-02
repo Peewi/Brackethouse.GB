@@ -8,6 +8,7 @@
 		readonly IORegisters IO;
 		ushort PreviousCPUTick = 0;
 		readonly ushort StartAddress;
+		readonly bool PeriodSweepEnable;
 		/// <summary>
 		/// The four different pulse wave duty cycles.
 		/// </summary>
@@ -21,9 +22,13 @@
 		byte Timer = 0;
 		bool TimerEnable = false;
 		byte Volume = 255;
-		int SweepPace = 0;
-		int SweepCounter = 0;
-		int SweepDirection = 1;
+		int PeriodSweepPace = 0;
+		int PeriodSweepCounter = 0;
+		int PeriodSweepDirection = 0;
+		int PeriodSweepStep = 0;
+		int VolumeSweepPace = 0;
+		int VolumeSweepCounter = 0;
+		int VolumeSweepDirection = 1;
 
 		int PeriodDivider = 0;
 		int TickCounter = 0;
@@ -34,10 +39,11 @@
 		int PeriodAddress => StartAddress + 3;
 		int ControlAddress => StartAddress + 4;
 
-		public PulseWaveChannel(IORegisters io, ushort startAddr)
+		public PulseWaveChannel(IORegisters io, ushort startAddr, bool periodSweep)
 		{
 			IO = io;
 			StartAddress = startAddr;
+			PeriodSweepEnable = periodSweep;
 		}
 		public override void Step(ushort tick)
 		{
@@ -48,24 +54,31 @@
 			}
 			PreviousCPUTick = tick;
 
-			int ch1InitialLength = IO[DutyAddress] & 0x3f;
-			byte ch1InitialVolume = (byte)(IO[VolumeAddress] & 0xf0);
-			ch1InitialVolume >>= 4;
+			int initialLength = IO[DutyAddress] & 0x3f;
+			byte initialVolume = (byte)(IO[VolumeAddress] & 0xf0);
+			initialVolume >>= 4;
 
-			int ch1Period = IO[PeriodAddress] + ((IO[ControlAddress] & Bit012Mask) << 8);
-			bool ch1Trigger = (IO[ControlAddress] & Bit7Mask) != 0;
-			bool ch1LengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
+			int period = IO[PeriodAddress] + ((IO[ControlAddress] & Bit012Mask) << 8);
+			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0;
+			bool lengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
 			// Turn off if these bits are zero.
 			DACPower = (IO[VolumeAddress] & Bit34567Mask) != 0;
-			if (ch1Trigger)
+			if (trigger)
 			{
 				ChannelEnable = true;
-				TimerEnable = ch1LengthEnable;
-				PeriodDivider = ch1Period;
-				Volume = ch1InitialVolume;
+				TimerEnable = lengthEnable;
+				PeriodDivider = period;
+				Volume = initialVolume;
 				if (Timer >= 64)
 				{
-					Timer = (byte)ch1InitialLength;
+					Timer = (byte)initialLength;
+				}
+				if (PeriodSweepEnable)
+				{
+					PeriodSweepCounter = 0;
+					PeriodSweepStep = IO[Ch1SweepAddress] & Bit012Mask;
+					PeriodSweepDirection = (IO[Ch1SweepAddress] & 0x08) == 0 ? 1 : -1;
+					PeriodSweepPace = (IO[Ch1SweepAddress] >> 4) & Bit012Mask;
 				}
 				IO[ControlAddress] &= Bit0123456Mask;
 			}
@@ -75,28 +88,63 @@
 				WaveValue = 0;
 				return;
 			}
+			if (PeriodSweepEnable)
+			{
+				int potentialPace = (IO[Ch1SweepAddress] >> 4) & Bit012Mask;
+				if (PeriodSweepPace == 0)
+				{
+					PeriodSweepPace = potentialPace;
+				}
+				else if (potentialPace == 0)
+				{
+					PeriodSweepPace = 0;
+				}
+				PeriodSweepStep = IO[Ch1SweepAddress] & Bit012Mask;
+				PeriodSweepDirection = (IO[Ch1SweepAddress] & 0x08) == 0 ? 1 : -1;
+			}
 			// https://gbdev.io/pandocs/Audio_details.html#div-apu
 			byte div = IO[0xff04];
 			div &= DIVAPUMask;
 			if (PrevDIVBit != 0 && div == 0)
 			{
 				DIVAPU++;
-				if ((DIVAPU % 8) == 0 && SweepPace != 0)
+				if (VolumeSweepPace != 0 && (DIVAPU % 8) == 0)
 				{
 					// Envelope sweep
-					SweepCounter++;
-					if (SweepCounter >= SweepPace)
+					VolumeSweepCounter++;
+					if (VolumeSweepCounter >= VolumeSweepPace)
 					{
-						SweepCounter = 0;
-						int newVol = Math.Clamp(Volume + SweepDirection, 0, 15);
+						VolumeSweepCounter = 0;
+						int newVol = Math.Clamp(Volume + VolumeSweepDirection, 0, 15);
 						Volume = (byte)newVol;
 					}
 				}
-				if ((DIVAPU % 4) == 0)
+				if (PeriodSweepPace != 0 && (DIVAPU % 4) == 0)
 				{
 					// CH1 freq sweep
+					PeriodSweepCounter++;
+					if (PeriodSweepCounter >= PeriodSweepPace)
+					{
+						PeriodSweepCounter = 0;
+						PeriodSweepPace = (IO[Ch1SweepAddress] >> 4) & Bit012Mask;
+						// calculate new period
+						int pShadow = period;
+						int mod = pShadow >> PeriodSweepStep;
+						int newPeriod = pShadow + mod * PeriodSweepDirection;
+						if (newPeriod >= 0x800)
+						{
+							ChannelEnable = false;
+							return;
+						}
+						// Write back new period
+						byte pLow = (byte)(newPeriod);
+						IO[PeriodAddress] = pLow;
+						byte pHigh = (byte)(newPeriod >> 8);
+						IO[ControlAddress] &= Bit34567Mask;
+						IO[ControlAddress] |= pHigh;
+					}
 				}
-				if ((DIVAPU % 2) == 0 && TimerEnable)
+				if (TimerEnable && (DIVAPU % 2) == 0)
 				{
 					// Sound length
 					Timer++;
@@ -106,11 +154,11 @@
 			PrevDIVBit = div;
 			//
 			TickCounter += ticks;
-			int ch1SweepDir = (byte)(IO[StartAddress + 2] & 0x08) == 0 ? -1 : 1;
-			byte ch1SweepPace = (byte)(IO[StartAddress + 2] & 0x07);
-			SweepDirection = ch1SweepDir;
-			SweepPace = ch1SweepPace;
-			int ch1WaveDuty = (IO[StartAddress + 1] & 0xc0) >> 6;
+			int sweepDir = (byte)(IO[VolumeAddress] & 0x08) == 0 ? -1 : 1;
+			byte sweepPace = (byte)(IO[VolumeAddress] & 0x07);
+			VolumeSweepDirection = sweepDir;
+			VolumeSweepPace = sweepPace;
+			int ch1WaveDuty = (IO[DutyAddress] & 0xc0) >> 6;
 			while (TickCounter >= TicksPerPeriod)
 			{
 				TickCounter -= TicksPerPeriod;
@@ -118,12 +166,10 @@
 				const int _11bitOverflow = 0x800;
 				if (PeriodDivider >= _11bitOverflow)
 				{
-					PeriodDivider = ch1Period;
+					PeriodDivider = period;
 					WavePosition++;
 					WavePosition %= PulseWaves[ch1WaveDuty].Length;
 					byte high = Volume;
-					//high *= 0x10;
-					//high >>= 4;
 					byte low = 0;
 					WaveValue = PulseWaves[ch1WaveDuty][WavePosition] == 0 ? low : high;
 				}
