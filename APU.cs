@@ -42,8 +42,8 @@ namespace Brackethouse.GB
 		{
 			IO = io;
 			Channels = [
-				new PulseWaveChannel(io, ch1Start),
-				new PulseWaveChannel(io, ch2Start),
+				new PulseWaveChannel(io, ch1Start, true),
+				new PulseWaveChannel(io, ch2Start, false),
 				new WaveChannel(io, ch3Start),
 				new NoiseChannel(io, ch4Start)
 				];
