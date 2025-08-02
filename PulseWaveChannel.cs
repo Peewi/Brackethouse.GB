@@ -28,7 +28,12 @@
 		int PeriodDivider = 0;
 		int TickCounter = 0;
 		const int TicksPerPeriod = 4;
-		
+		int Ch1SweepAddress => StartAddress + 0;
+		int DutyAddress => StartAddress + 1;
+		int VolumeAddress => StartAddress + 2;
+		int PeriodAddress => StartAddress + 3;
+		int ControlAddress => StartAddress + 4;
+
 		public PulseWaveChannel(IORegisters io, ushort startAddr)
 		{
 			IO = io;
@@ -43,15 +48,15 @@
 			}
 			PreviousCPUTick = tick;
 
-			int ch1InitialLength = IO[StartAddress + 1] & 0x3f;
-			byte ch1InitialVolume = (byte)(IO[StartAddress + 2] & 0xf0);
+			int ch1InitialLength = IO[DutyAddress] & 0x3f;
+			byte ch1InitialVolume = (byte)(IO[VolumeAddress] & 0xf0);
 			ch1InitialVolume >>= 4;
 
-			int ch1Period = IO[StartAddress + 3] + ((IO[StartAddress + 4] & 0x03) << 8);
-			bool ch1Trigger = (IO[StartAddress + 4] & 0x80) != 0;
-			bool ch1LengthEnable = (IO[StartAddress + 4] & 0x40) != 0;
+			int ch1Period = IO[PeriodAddress] + ((IO[ControlAddress] & Bit012Mask) << 8);
+			bool ch1Trigger = (IO[ControlAddress] & Bit7Mask) != 0;
+			bool ch1LengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
 			// Turn off if these bits are zero.
-			DACPower = (IO[StartAddress + 2] & 0xf8) != 0;
+			DACPower = (IO[VolumeAddress] & Bit34567Mask) != 0;
 			if (ch1Trigger)
 			{
 				ChannelEnable = true;
@@ -62,7 +67,7 @@
 				{
 					Timer = (byte)ch1InitialLength;
 				}
-				IO[StartAddress + 4] &= 0x7f;
+				IO[ControlAddress] &= Bit0123456Mask;
 			}
 			ChannelEnable &= DACPower;
 			if (!ChannelEnable)

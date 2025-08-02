@@ -24,6 +24,11 @@
 		bool LengthEnable;
 		int LengthCounter;
 
+		int LengthAddress => StartAddress + 0;
+		int VolumeAddress => StartAddress + 1;
+		int FrequencyAddress => StartAddress + 2;
+		int ControlAddress => StartAddress + 3;
+
 		public NoiseChannel(IORegisters io, ushort startAddr)
 		{
 			IO = io;
@@ -38,16 +43,16 @@
 			}
 			PreviousCPUTick = tick;
 
-			byte initialLength = (byte)(IO[StartAddress + 0] & 0x3f);
+			byte initialLength = (byte)(IO[LengthAddress] & 0x3f);
 
-			byte initialVolume = (byte)(IO[StartAddress + 1] & 0xf0);
+			byte initialVolume = (byte)(IO[VolumeAddress] & 0xf0);
 			initialVolume >>= 4;
-			int sweepDir = (byte)(IO[StartAddress + 1] & 0x08) == 0 ? -1 : 1;
-			byte sweepPace = (byte)(IO[StartAddress + 1] & 0x07);
+			int sweepDir = (byte)(IO[VolumeAddress] & 0x08) == 0 ? -1 : 1;
+			byte sweepPace = (byte)(IO[VolumeAddress] & Bit012Mask);
 
-			byte clockDivisorCode = (byte)(IO[StartAddress + 2] & 0x07);
-			bool lfsrWidth = (IO[StartAddress + 2] & 0x08) != 0;
-			byte clockShift = (byte)(IO[StartAddress + 2] & 0xf0);
+			byte clockDivisorCode = (byte)(IO[FrequencyAddress] & Bit012Mask);
+			bool lfsrWidth = (IO[FrequencyAddress] & 0x08) != 0;
+			byte clockShift = (byte)(IO[FrequencyAddress] & 0xf0);
 			clockShift >>= 4;
 
 			int clockDiv = clockDivisorCode * 16;
@@ -57,10 +62,10 @@
 			}
 			clockDiv <<= clockShift;
 
-			bool trigger = (IO[StartAddress + 3] & 0x80) != 0;
-			bool lengthEnable = (IO[StartAddress + 3] & 0x40) != 0;
+			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0;
+			bool lengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
 
-			DACPower = (IO[StartAddress + 1] & 0xf8) != 0;
+			DACPower = (IO[VolumeAddress] & Bit34567Mask) != 0;
 			if (trigger)
 			{
 				ChannelEnable = true;
@@ -72,7 +77,7 @@
 					LengthTimer = 64 - initialLength;
 				}
 				LengthEnable = lengthEnable;
-				IO[StartAddress + 3] &= 0x7f;
+				IO[ControlAddress] &= Bit0123456Mask;
 			}
 			ShortLFSR = lfsrWidth;
 			EnvelopePace = sweepPace;

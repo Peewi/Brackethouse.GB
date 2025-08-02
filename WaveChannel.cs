@@ -24,6 +24,11 @@
 
 		int WavePosition = 1;
 		const int WaveSize = 32;
+		int DACAddress => StartAddress + 0;
+		int LengthAddress => StartAddress + 1;
+		int OutLevelAddress => StartAddress + 2;
+		int PeriodAddress => StartAddress + 3;
+		int ControlAddress => StartAddress + 4;
 		public WaveChannel(IORegisters io, ushort startAddr)
 		{
 			IO = io;
@@ -38,14 +43,14 @@
 			}
 			PreviousCPUTick = tick;
 
-			bool dacOnOff = (IO[StartAddress] & 0x80) != 0;
-			byte initialLength = IO[StartAddress + 1];
-			byte outLevel = (byte)(IO[StartAddress + 2] >> 5);
-			int period = IO[StartAddress + 3] + ((IO[StartAddress + 4] & 0x03) << 8);
-			bool trigger = (IO[StartAddress + 4] & 0x80) != 0;
-			bool lengthEnable = (IO[StartAddress + 4] & 0x40) != 0;
+			bool dacOnOff = (IO[DACAddress] & Bit7Mask) != 0;
+			byte initialLength = IO[LengthAddress];
+			byte outLevel = (byte)(IO[OutLevelAddress] >> 5);
+			int period = IO[PeriodAddress] + ((IO[ControlAddress] & Bit012Mask) << 8);
+			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0;
+			bool lengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
 			// Turn off if these bits are zero.
-			DACPower = (IO[StartAddress + 2] & 0xf8) != 0;
+			DACPower = dacOnOff;
 			if (trigger)
 			{
 				ChannelEnable = true;
@@ -55,7 +60,7 @@
 				}
 				PeriodDivider = period;
 				Volume = outLevel;
-				IO[StartAddress + 4] &= 0x7f;
+				IO[ControlAddress] &= Bit0123456Mask;
 			}
 			ChannelEnable &= DACPower;
 			if (!ChannelEnable)
