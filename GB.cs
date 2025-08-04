@@ -14,6 +14,7 @@ namespace Brackethouse.GB
 		CPU CPU;
 		Memory Memory;
 		PPU Graphics;
+		APU Audio;
 		Joypad Input;
 		Serial Serial;
 		IORegisters IO;
@@ -27,6 +28,7 @@ namespace Brackethouse.GB
 			IO = new IORegisters();
 			Input = new SDLJoypad(IO);
 			Graphics = new PPU(IO, Display);
+			Audio = new APU(IO);
 			Serial = new Serial(IO);
 			Memory = new Memory(Cart, Graphics, IO);
 			CPU = new CPU(Memory);
@@ -43,6 +45,7 @@ namespace Brackethouse.GB
 				Input.CPUStep();
 				Graphics.Step(CPU.TState);
 				IO.StepTimerRegisters(CPU.TState);
+				Audio.Step(CPU.TState);
 			}
 			Display.Output();
 			if (Frame % 60 == 0)

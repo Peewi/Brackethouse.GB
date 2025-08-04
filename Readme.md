@@ -1,7 +1,7 @@
 # A Game Boy Emulator
 This is an emulator of the original monochrome Game Boy. It was written by Lau Laursen for fun and programming practice.
 
-The emulation works, though sound is currently not emulated and there are no extra features.
+The emulation works, though some less features may be missing.
 
 Currently, only keyboard controls are available and they are not customizable.
 - Arrow keys: D-pad

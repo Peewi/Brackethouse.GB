@@ -1,0 +1,124 @@
+﻿namespace Brackethouse.GB
+{
+	/// <summary>
+	/// Audio channel 3. Plays samples.
+	/// </summary>
+	class WaveChannel : AudioChannel
+	{
+		readonly IORegisters IO;
+		readonly ushort StartAddress;
+		ushort PreviousCPUTick = 0;
+
+		int PeriodDivider = 0;
+		int TickCounter = 0;
+		const int TicksPerPeriod = 2;
+
+		int LengthTimer = 0;
+		bool LengthEnable = false;
+		const int LengthLimit = 256;
+		int Volume;
+
+		const int DIVAPUMask = 0x10;
+		byte PrevDIVBit = 0;
+		byte DIVAPU = 0;
+
+		int WavePosition = 1;
+		const int WaveSize = 32;
+		int DACAddress => StartAddress + 0;
+		int LengthAddress => StartAddress + 1;
+		int OutLevelAddress => StartAddress + 2;
+		int PeriodAddress => StartAddress + 3;
+		int ControlAddress => StartAddress + 4;
+		public WaveChannel(IORegisters io, ushort startAddr)
+		{
+			IO = io;
+			StartAddress = startAddr;
+		}
+		public override void Step(ushort tick)
+		{
+			int ticks = tick - PreviousCPUTick;
+			if (ticks < 0)
+			{
+				ticks += ushort.MaxValue + 1;
+			}
+			PreviousCPUTick = tick;
+
+			bool dacOnOff = (IO[DACAddress] & Bit7Mask) != 0;
+			byte initialLength = IO[LengthAddress];
+			byte outLevel = (byte)(IO[OutLevelAddress] >> 5);
+			int period = IO[PeriodAddress] + ((IO[ControlAddress] & Bit012Mask) << 8);
+			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0;
+			bool lengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
+			// Turn off if these bits are zero.
+			DACPower = dacOnOff;
+			if (trigger)
+			{
+				ChannelEnable = true;
+				if (LengthTimer >= LengthLimit)
+				{
+					LengthTimer = initialLength;
+				}
+				PeriodDivider = period;
+				Volume = outLevel;
+				IO[ControlAddress] &= Bit0123456Mask;
+			}
+			ChannelEnable &= DACPower;
+			if (!ChannelEnable)
+			{
+				WaveValue = 0;
+				return;
+			}
+			LengthEnable = lengthEnable;
+			// https://gbdev.io/pandocs/Audio_details.html#div-apu
+			byte div = IO[0xff04];
+			div &= DIVAPUMask;
+			if (PrevDIVBit != 0 && div == 0)
+			{
+				DIVAPU++;
+				if ((DIVAPU % 2) == 0 && LengthEnable)
+				{
+					// Sound length
+					LengthTimer++;
+					ChannelEnable &= LengthTimer < LengthLimit;
+				}
+			}
+			PrevDIVBit = div;
+
+			TickCounter += ticks;
+			while (TickCounter >= TicksPerPeriod)
+			{
+				TickCounter -= TicksPerPeriod;
+
+				PeriodDivider++;
+				const int _11bitOverflow = 0x800;
+				if (PeriodDivider >= _11bitOverflow)
+				{
+					PeriodDivider = period;
+					WavePosition++;
+					WavePosition %= WaveSize;
+					//byte posVol = (byte)(Volume >> 1);
+					//byte negVol = (byte)-(Volume >> 1);
+					byte value = ReadSample(WavePosition);
+					value <<= 0;
+					int volShift = Volume - 1;
+					if (volShift == -1)
+					{
+						volShift = 4;
+					}
+					value >>= volShift;
+					WaveValue = value;
+				}
+			}
+		}
+		byte ReadSample(int index)
+		{
+			byte retval = IO[0xff30 + index / 2];
+			if (index % 2 == 0)
+			{
+				retval >>= 4;
+			}
+			retval &= 0x0f;
+			return retval;
+		}
+	}
+}
