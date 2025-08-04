@@ -57,6 +57,15 @@ while (Running)
 		{
 			OpenROMFileDialog(window, renderer);
 		}
+		if (t == SDL.EventType.KeyDown && e.Key.Key == SDL.Keycode.R && (e.Key.Mod & SDL.Keymod.Ctrl) != 0)
+		{
+			if (boy != null)
+			{
+				boy.Save(savePath);
+				StartGB(gamePath, renderer);
+
+			}
+		}
 	}
 	ulong frameEnd = SDL.GetTicksNS();
 	ulong frameDuration = frameEnd - frameStart;
