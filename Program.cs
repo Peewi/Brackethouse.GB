@@ -8,6 +8,16 @@ const int TargetFrameDurationNS60Hz = 16666667;
 bool Running = true;
 const string ProgramName = "Peewi's GB emulator!";
 GB? boy = null;
+GameBoyType gbType = GameBoyType.Auto;
+
+Dictionary<string, GameBoyType> gbTypeArgName = [];
+gbTypeArgName.Add("gb", GameBoyType.GameBoy);
+gbTypeArgName.Add("gameboy", GameBoyType.GameBoy);
+gbTypeArgName.Add("monochrome", GameBoyType.GameBoy);
+gbTypeArgName.Add("gbc", GameBoyType.GameBoyColor);
+gbTypeArgName.Add("color", GameBoyType.GameBoyColor);
+gbTypeArgName.Add("colour", GameBoyType.GameBoyColor);
+
 Console.WriteLine(ProgramName);
 if (!SDL.Init(SDL.InitFlags.Video | SDL.InitFlags.Audio))
 {
@@ -24,9 +34,16 @@ SDL.SetWindowResizable(window, true);
 
 string gamePath = "";
 string savePath = "";
-if (args.Length > 0)
+for (int i = 0; i < args.Length; i++)
 {
-	gamePath = args[0];
+	if (gbTypeArgName.TryGetValue(args[i].ToLower(), out GameBoyType value))
+	{
+		gbType = value;
+	}
+	else if (File.Exists(args[i]))
+	{
+		gamePath = args[0];
+	}
 }
 if (gamePath == "")
 {
@@ -63,7 +80,6 @@ while (Running)
 			{
 				boy.Save(savePath);
 				StartGB(gamePath, renderer);
-
 			}
 		}
 	}
@@ -85,7 +101,7 @@ void StartGB(string path, nint renderer)
 	string dir = Path.GetDirectoryName(path) ?? string.Empty;
 	string f = (Path.GetFileNameWithoutExtension(path) ?? string.Empty) + ".sav";
 	savePath = Path.Combine(dir, f);
-	boy = new GB(gamePath, savePath, renderer);
+	boy = new GB(gbType, gamePath, savePath, renderer);
 	SDL.SetWindowTitle(window, $"{ProgramName} {boy.GameTitle}");
 }
 void OpenROMCallback(nint userdata, nint filelist, int filter)

@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 
 namespace Brackethouse.GB
 {
-    class Cartridge
-    {
+	class Cartridge
+	{
 		/// <summary>
 		/// The different types of cartridge.
 		/// Values correspond to byte in cartridge header.
 		/// Values taken from https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
 		/// </summary>
 		enum CartridgeType
-        {
+		{
 			ROM_ONLY = 0x00,
 			MBC1 = 0x01,
 			MBC1_RAM = 0x02,
@@ -44,6 +44,7 @@ namespace Brackethouse.GB
 			HuC3 = 0xFE,
 			HuC1_RAM_BATTERY = 0xFF,
 		}
+		const ushort CGBFlagAddress = 0x0143;
 		const ushort TypeAddress = 0x0147;
 		const ushort ROMSizeAddress = 0x0148;
 		const ushort RAMSizeAddress = 0x0149;
@@ -55,8 +56,9 @@ namespace Brackethouse.GB
 		readonly int ROMBankCount;
 		readonly int RAMBankCount;
 		public readonly string Title = "";
-        readonly byte[] ROM;
-        readonly byte[] RAM;
+		public readonly GameBoyType CartType = GameBoyType.GameBoy;
+		readonly byte[] ROM;
+		readonly byte[] RAM;
 		readonly bool Battery = false;
 		int ROMBankSelect = 1;
 		bool RAMEnable = false;
@@ -148,6 +150,10 @@ namespace Brackethouse.GB
 			for (int i = 0x0134; i < 0x0144; i++)
 			{
 				Title += (char)rom[i];
+			}
+			if ((rom[CGBFlagAddress] & 0x80) != 0)
+			{
+				CartType = GameBoyType.GameBoyColor;
 			}
 		}
 		/// <summary>

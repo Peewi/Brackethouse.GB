@@ -76,11 +76,18 @@ namespace Brackethouse.GB
 		readonly ushort[] InterruptTargets = [0x40, 0x48, 0x50, 0x58, 0x60];
 		const ushort InterruptFlag = 0xff0f;
 		const ushort InterruptEnableRegister = 0xffff;
+		readonly GameBoyType CPUMode = GameBoyType.GameBoy;
+		bool DoubleSpeed = false;
+		/// <summary>
+		/// Right shift tick values by this number. 0 for normal speed mode, 1 for double speed.
+		/// </summary>
+		int TickShift = 0;
 
-		public CPU(Memory mem)
+		public CPU(Memory mem, GameBoyType mode)
 		{
 			Memory = mem;
 			Init();
+			CPUMode = mode;
 			//Console.WriteLine($"Test register result: {TestRegisters()}");
 		}
 
@@ -1219,6 +1226,10 @@ namespace Brackethouse.GB
 		void Init()
 		{
 			InitOpCodes();
+			if (CPUMode == GameBoyType.GameBoyColor)
+			{
+				OpCodes[0x10] = () => { StopColor(); };
+			}
 			// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers
 			// Lets try DMG values
 			const ushort startingPoint = 0x0100;
@@ -1278,6 +1289,7 @@ namespace Brackethouse.GB
 			{
 				tAdvance = CBCodeCycles[LastReadByte];
 			}
+			tAdvance >>= TickShift;
 			TState += tAdvance;
 		}
 		// Instructions implemented according to this reference:
@@ -2226,8 +2238,27 @@ namespace Brackethouse.GB
 		{
 
 		}
+		/// <summary>
+		/// The STOP instruction.
+		/// </summary>
 		void Stop()
 		{
+			Stopped = true;
+		}
+		/// <summary>
+		/// The Game Boy Color version of the STOP instruction. Also used for speed switching.
+		/// </summary>
+		void StopColor()
+		{
+			const int speedAddress = 0xff4d;
+			bool switchArmed = (Memory[speedAddress] & 0x01) != 0;
+			if (switchArmed)
+			{
+				DoubleSpeed = !DoubleSpeed;
+				TickShift = (TickShift + 1) % 2;
+				Memory[speedAddress] = (byte)(TickShift << 7);
+				return;
+			}
 			Stopped = true;
 		}
 		#endregion

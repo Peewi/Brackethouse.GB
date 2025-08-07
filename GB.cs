@@ -22,16 +22,26 @@ namespace Brackethouse.GB
 		Stopwatch Time = new Stopwatch();
 		public string GameTitle => Cart.Title;
 		public GB(string cartPath, string savePath, nint renderer)
+		public GB(GameBoyType gbType, string cartPath, string savePath, nint renderer)
 		{
 			Cart = Cartridge.FromFile(cartPath, savePath);
+			if (gbType == GameBoyType.Auto)
+			{
+				gbType = Cart.CartType;
+			}
+			GameBoyType compatMode = GameBoyType.GameBoy;
+			if (gbType == GameBoyType.GameBoyColor && Cart.CartType == GameBoyType.GameBoyColor)
+			{
+				compatMode = GameBoyType.GameBoyColor;
+			}
 			Display = new SDLDisplay(renderer);
 			IO = new IORegisters();
 			Input = new SDLJoypad(IO);
 			Graphics = new PPU(IO, Display);
 			Audio = new APU(IO);
 			Serial = new Serial(IO);
-			Memory = new Memory(Cart, Graphics, IO);
-			CPU = new CPU(Memory);
+			Memory = new Memory(Cart, Graphics, IO, compatMode);
+			CPU = new CPU(Memory, compatMode);
 			Time.Start();
 		}
 		public void Step()
@@ -61,5 +71,11 @@ namespace Brackethouse.GB
 		{
 			Cart.SaveRAM(savePath);
 		}
+	}
+	enum GameBoyType
+	{
+		Auto = -1,
+		GameBoy = 0,
+		GameBoyColor = 1
 	}
 }

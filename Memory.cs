@@ -8,8 +8,13 @@ namespace Brackethouse.GB
 {
 	class Memory
 	{
-		const int MemorySize = ushort.MaxValue + 1;
-		byte[] Bytes = new byte[MemorySize];
+		const int WRAMBankSize = 0x1000;
+		const int HRAMSize = 0x80;
+		const ushort WRAMBankSwitchAddress = 0xff70;
+		GameBoyType Mode;
+		int WRAMBank = 1;
+		byte[] WorkRAM = new byte[WRAMBankSize * 2];
+		byte[] HighRAM = new byte[HRAMSize];
 		Cartridge Cart;
 		PPU Graphics;
 		IORegisters IO;
@@ -19,20 +24,25 @@ namespace Brackethouse.GB
 		const ushort SwitchableBankEnd = 0x7FFF;
 		const ushort VideoRAM = 0x8000;
 		const ushort ExternalRAM = 0xA000;
-		const ushort WorkRAM = 0xC000;
+		const ushort WorkRAMStart = 0xC000;
 		const ushort EchoRAM = 0xE000;
 		const ushort EchoRAMEnd = 0xFDFF;
 		const ushort ObjectAttributeMemory = 0xFE00;
 		const ushort ObjectAttributeMemoryEnd = 0xFE9F;
 		const ushort NotUsable = 0xFEA0;
 		const ushort IORegistersStart = 0xFF00;
-		const ushort HighRAM = 0xFF80;
+		const ushort HighRAMStart = 0xFF80;
 		const ushort InterruptEnableRegister = 0xFFFF;
-		public Memory(Cartridge cart, PPU gfx, IORegisters io)
+		public Memory(Cartridge cart, PPU gfx, IORegisters io, GameBoyType mode)
 		{
 			Cart = cart;
 			Graphics = gfx;
 			IO = io;
+			Mode = mode;
+			if (mode == GameBoyType.GameBoyColor)
+			{
+				WorkRAM = new byte[WRAMBankSize * 8];
+			}
 		}
 		public Byte this[int i]
 		{
@@ -63,7 +73,20 @@ namespace Brackethouse.GB
 			{
 				return IO[uadr];
 			}
-			return Bytes[address];
+			if (AddressIsHRAM(uadr))
+			{
+				int hramIndex = uadr - HighRAMStart;
+				return HighRAM[hramIndex];
+			}
+			if (AddressIsEchoRAM(uadr))
+			{
+				uadr -= 0x2000;
+			}
+			if (AddressIsNotUsable(uadr))
+			{
+				return 0xff;
+			}
+			return WorkRAM[WRAMIndex(uadr)];
 		}
 		/// <summary>
 		/// Write to memory. For use by CPU.
@@ -92,13 +115,74 @@ namespace Brackethouse.GB
 			{
 				IO.CPUWrite(uadr, value);
 				//
-				if (address == IORegisters.OAMDMAAddress)
+				if (address == WRAMBankSwitchAddress && Mode == GameBoyType.GameBoyColor)
+				{
+					int newBank = value & 0x07;
+					newBank = Math.Clamp(newBank, 1, 8);
+					WRAMBank = newBank;
+				}
+				else if (address == IORegisters.OAMDMAAddress)
 				{
 					OAM_DMA(value);
 				}
 				return;
 			}
-			Bytes[address] = value;
+			if (AddressIsHRAM(uadr))
+			{
+				int hramIndex = uadr - HighRAMStart;
+				HighRAM[hramIndex] = value;
+				return;
+			}
+			if (AddressIsEchoRAM(uadr))
+			{
+				uadr -= 0x2000;
+			}
+			if (AddressIsNotUsable(uadr))
+			{
+				return;
+			}
+			WorkRAM[WRAMIndex(uadr)] = value;
+		}
+		/// <summary>
+		/// Whether an address is High RAM
+		/// </summary>
+		/// <param name="address">Game Boy memory address</param>
+		/// <returns>Whether it's High RAM</returns>
+		static bool AddressIsHRAM(ushort address)
+		{
+			return address >= HighRAMStart;
+		}
+		/// <summary>
+		/// Whether an address is echo RAM
+		/// </summary>
+		/// <param name="address">Game Boy memory address</param>
+		/// <returns>Whether it's echo RAM</returns>
+		static bool AddressIsEchoRAM(ushort address)
+		{
+			return address >= EchoRAM && address <= EchoRAMEnd;
+		}
+		/// <summary>
+		/// Whether an address is in the unusable space.
+		/// </summary>
+		/// <param name="address">Game Boy memory address</param>
+		/// <returns>Whether it's unusable</returns>
+		static bool AddressIsNotUsable(ushort address)
+		{
+			return address >= NotUsable && address < IORegistersStart;
+		}
+		/// <summary>
+		/// Get index to work RAM array.
+		/// </summary>
+		/// <param name="address">Game Boy memory address</param>
+		/// <returns>Index to work RAM array.</returns>
+		int WRAMIndex(ushort address)
+		{
+			int wramIndex = address - WorkRAMStart;
+			if (wramIndex >= WRAMBankSize)
+			{
+				wramIndex += (WRAMBank - 1) * WRAMBankSize;
+			}
+			return wramIndex;
 		}
 		/// <summary>
 		/// https://gbdev.io/pandocs/OAM_DMA_Transfer.html
