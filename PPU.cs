@@ -42,6 +42,7 @@ namespace Brackethouse.GB
 		const byte Height = 144;
 		const byte ScanLines = 154;
 		const int TicksPerLine = 456;
+		public const int TicksPerFrame = TicksPerLine * ScanLines;
 		public const int LCDCAddress = 0xff40;
 		public const int LCDStatusAddress = 0xff41;
 		public const ushort LYAddress = 0xff44;
@@ -127,8 +128,8 @@ namespace Brackethouse.GB
 			if (!LCDEnable)
 			{
 				OffTicks += 4;
-				Frame += OffTicks / (TicksPerLine * ScanLines);
-				OffTicks %= (TicksPerLine * ScanLines);
+				Frame += OffTicks / TicksPerFrame;
+				OffTicks %= TicksPerFrame;
 				LineTicks = 0;
 				PixelX = 0;
 				PixelY = 0;

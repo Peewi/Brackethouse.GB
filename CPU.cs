@@ -64,6 +64,10 @@ namespace Brackethouse.GB
 		/// </summary>
 		public ushort TState { get; private set; } = 0;
 		/// <summary>
+		/// How many ticks the most recent CPU instruction took.
+		/// </summary>
+		public ushort StepTicks { get; private set; } = 0;
+		/// <summary>
 		/// How far to advance PC this step.
 		/// </summary>
 		int PCAdvance = 0;
@@ -76,6 +80,10 @@ namespace Brackethouse.GB
 		readonly ushort[] InterruptTargets = [0x40, 0x48, 0x50, 0x58, 0x60];
 		const ushort InterruptFlag = 0xff0f;
 		const ushort InterruptEnableRegister = 0xffff;
+		/// <summary>
+		/// Ticks per second.
+		/// </summary>
+		public const int ClockFrequency = 0x40_0000;
 		readonly GameBoyType CPUMode = GameBoyType.GameBoy;
 		bool DoubleSpeed = false;
 		/// <summary>
@@ -1290,6 +1298,7 @@ namespace Brackethouse.GB
 				tAdvance = CBCodeCycles[LastReadByte];
 			}
 			tAdvance >>= TickShift;
+			StepTicks = tAdvance;
 			TState += tAdvance;
 		}
 		// Instructions implemented according to this reference:

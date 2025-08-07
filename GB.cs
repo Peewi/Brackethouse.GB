@@ -46,11 +46,13 @@ namespace Brackethouse.GB
 		}
 		public void Step()
 		{
+			int stepTicks = 0;
 			Frame++;
 			Input.FrameStep();
-			while (Frame == Graphics.Frame)
+			while (stepTicks < PPU.TicksPerFrame)
 			{
 				CPU.Step();
+				stepTicks += CPU.StepTicks;
 				Serial.Step(CPU.TState);
 				Input.CPUStep();
 				Graphics.Step(CPU.TState);
