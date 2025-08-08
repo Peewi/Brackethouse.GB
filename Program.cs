@@ -3,9 +3,10 @@ using Brackethouse.GB;
 using SDL3;
 using System.Runtime.InteropServices;
 
-const int TargetFrameDurationNS = 16744444;
+const int TargetFrameDurationNS = 16740000;
 const int TargetFrameDurationNS60Hz = 16666667;
 bool Running = true;
+bool Paused = false;
 const string ProgramName = "Peewi's GB emulator!";
 GB? boy = null;
 GameBoyType gbType = GameBoyType.Auto;
@@ -61,7 +62,10 @@ ulong sleepCompensation = 0;
 while (Running)
 {
 	ulong frameStart = SDL.GetTicksNS();
-	boy?.Step();
+	if (!Paused)
+	{
+		boy?.Step();
+	}
 	SDL.PumpEvents();
 	while (SDL.PollEvent(out var e))
 	{
@@ -81,6 +85,10 @@ while (Running)
 				boy.Save(savePath);
 				StartGB(gamePath, renderer);
 			}
+		}
+		if (t == SDL.EventType.KeyDown && e.Key.Key == SDL.Keycode.Pause)
+		{
+			Paused = !Paused;
 		}
 	}
 	ulong frameEnd = SDL.GetTicksNS();
@@ -103,6 +111,7 @@ void StartGB(string path, nint renderer)
 	savePath = Path.Combine(dir, f);
 	boy = new GB(gbType, gamePath, savePath, renderer);
 	SDL.SetWindowTitle(window, $"{ProgramName} {boy.GameTitle}");
+	Paused = false;
 }
 void OpenROMCallback(nint userdata, nint filelist, int filter)
 {
