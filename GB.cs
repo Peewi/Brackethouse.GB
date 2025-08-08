@@ -21,7 +21,6 @@ namespace Brackethouse.GB
 		int Frame = -1;
 		Stopwatch Time = new Stopwatch();
 		public string GameTitle => Cart.Title;
-		public GB(string cartPath, string savePath, nint renderer)
 		public GB(GameBoyType gbType, string cartPath, string savePath, nint renderer)
 		{
 			Cart = Cartridge.FromFile(cartPath, savePath);
@@ -47,7 +46,6 @@ namespace Brackethouse.GB
 		public void Step()
 		{
 			int stepTicks = 0;
-			Frame++;
 			Input.FrameStep();
 			while (stepTicks < PPU.TicksPerFrame)
 			{
@@ -58,8 +56,12 @@ namespace Brackethouse.GB
 				Graphics.Step(CPU.TState);
 				IO.StepTimerRegisters(CPU.TState);
 				Audio.Step(CPU.TState);
+				if (Frame != Graphics.Frame)
+				{
+					Frame = Graphics.Frame;
+					Display.Output();
+				}
 			}
-			Display.Output();
 			if (Frame % 60 == 0)
 			{
 				Console.WriteLine($"Frame {Frame}, time: {Time.Elapsed}");
