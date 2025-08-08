@@ -51,10 +51,10 @@ namespace Brackethouse.GB
 			{
 				CPU.Step();
 				stepTicks += CPU.StepTicks;
-				Serial.Step(CPU.StepTicks);
+				Serial.Step((ushort)(CPU.StepTicks << CPU.SpeedShift));
 				Input.CPUStep();
 				Graphics.Step(CPU.StepTicks);
-				IO.StepTimerRegisters(CPU.StepTicks);
+				IO.StepTimerRegisters(CPU.StepTicks, CPU.SpeedShift);
 				Audio.Step(CPU.StepTicks);
 				if (Frame != Graphics.Frame)
 				{

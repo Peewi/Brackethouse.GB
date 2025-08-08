@@ -103,8 +103,14 @@ namespace Brackethouse.GB
 		{
 			return address >= IORegistersStart && address <= IORegistersEnd;
 		}
-		public void StepTimerRegisters(ushort ticks)
+		/// <summary>
+		/// Add to timer registers
+		/// </summary>
+		/// <param name="ticks">CPU ticks.</param>
+		/// <param name="speed">CPU speed mode. 0 for regular, 1 for double.</param>
+		public void StepTimerRegisters(ushort ticks, int speed)
 		{
+			ticks <<= speed;
 			// https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 
 			bool TACEnable = (this[TimerControlAddress] & 0b00_00_01_00) != 0;
@@ -117,7 +123,9 @@ namespace Brackethouse.GB
 			this[DividerAddress] = (byte)newDiv;
 			// Audio timer
 			AudioTimerTick = 0;
-			const int audioMask = 0x10;
+			const int bit4 = 0x10;
+			int audioMask = bit4;
+			audioMask <<= speed;
 			if ((oldDiv & audioMask) != 0 && (newDiv & audioMask) == 0)
 			{
 				AudioTimerTick = 1;

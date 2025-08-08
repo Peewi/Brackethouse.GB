@@ -89,7 +89,7 @@ namespace Brackethouse.GB
 		/// <summary>
 		/// Right shift tick values by this number. 0 for normal speed mode, 1 for double speed.
 		/// </summary>
-		int TickShift = 0;
+		public int SpeedShift { get; private set; } = 0;
 
 		public CPU(Memory mem, GameBoyType mode)
 		{
@@ -1273,7 +1273,7 @@ namespace Brackethouse.GB
 							Jump(InterruptTargets[i]);
 							StepTicks = 20;
 							TState += StepTicks;
-							StepTicks >>= TickShift;
+							StepTicks >>= SpeedShift;
 							return;
 						}
 					}
@@ -1282,7 +1282,7 @@ namespace Brackethouse.GB
 			if (Halted || Stopped)
 			{
 				StepTicks = 4;
-				StepTicks >>= TickShift;
+				StepTicks >>= SpeedShift;
 				TState += StepTicks;
 				return;
 			}
@@ -1302,7 +1302,7 @@ namespace Brackethouse.GB
 			{
 				tAdvance = CBCodeCycles[LastReadByte];
 			}
-			tAdvance >>= TickShift;
+			tAdvance >>= SpeedShift;
 			StepTicks = tAdvance;
 			TState += StepTicks;
 		}
@@ -2269,8 +2269,8 @@ namespace Brackethouse.GB
 			if (switchArmed)
 			{
 				DoubleSpeed = !DoubleSpeed;
-				TickShift = (TickShift + 1) % 2;
-				Memory[speedAddress] = (byte)(TickShift << 7);
+				SpeedShift = (SpeedShift + 1) % 2;
+				Memory[speedAddress] = (byte)(SpeedShift << 7);
 				return;
 			}
 			Stopped = true;
