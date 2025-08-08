@@ -76,6 +76,7 @@ while (Running)
 		}
 		if (t == SDL.EventType.KeyDown && e.Key.Key == SDL.Keycode.O && (e.Key.Mod & SDL.Keymod.Ctrl) != 0)
 		{
+			Paused = true;
 			OpenROMFileDialog(window, renderer);
 		}
 		if (t == SDL.EventType.KeyDown && e.Key.Key == SDL.Keycode.R && (e.Key.Mod & SDL.Keymod.Ctrl) != 0)
@@ -115,6 +116,7 @@ void StartGB(string path, nint renderer)
 }
 void OpenROMCallback(nint userdata, nint filelist, int filter)
 {
+	Paused = false;
 	if (filelist != IntPtr.Zero)
 	{
 		nint strPtr = Marshal.ReadIntPtr(filelist);
