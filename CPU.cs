@@ -1259,6 +1259,7 @@ namespace Brackethouse.GB
 				if (InterruptMasterEnable)
 				{
 					// Do interrupt here.
+					// https://gbdev.io/pandocs/Interrupts.html#interrupt-handling
 					for (int i = 0; i < InterruptTargets.Length; i++)
 					{
 						byte checkBit = 1;
@@ -1270,7 +1271,9 @@ namespace Brackethouse.GB
 
 							Push(R16.PC);
 							Jump(InterruptTargets[i]);
-							TState += 20;
+							StepTicks = 20;
+							TState += StepTicks;
+							StepTicks >>= TickShift;
 							return;
 						}
 					}
@@ -1278,7 +1281,9 @@ namespace Brackethouse.GB
 			}
 			if (Halted || Stopped)
 			{
-				TState += 4;
+				StepTicks = 4;
+				StepTicks >>= TickShift;
+				TState += StepTicks;
 				return;
 			}
 			InterruptMasterEnable |= InterruptMasterEnableQueue;
@@ -1299,7 +1304,7 @@ namespace Brackethouse.GB
 			}
 			tAdvance >>= TickShift;
 			StepTicks = tAdvance;
-			TState += tAdvance;
+			TState += StepTicks;
 		}
 		// Instructions implemented according to this reference:
 		// https://rgbds.gbdev.io/docs/v0.9.1/gbz80.7
