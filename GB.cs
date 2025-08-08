@@ -34,7 +34,7 @@ namespace Brackethouse.GB
 				compatMode = GameBoyType.GameBoyColor;
 			}
 			Display = new SDLDisplay(renderer);
-			IO = new IORegisters();
+			IO = new IORegisters(gbType);
 			Input = new SDLJoypad(IO);
 			Graphics = new PPU(IO, Display);
 			Audio = new APU(IO);
