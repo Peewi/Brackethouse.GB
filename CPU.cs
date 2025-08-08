@@ -94,8 +94,8 @@ namespace Brackethouse.GB
 		public CPU(Memory mem, GameBoyType mode)
 		{
 			Memory = mem;
-			Init();
 			CPUMode = mode;
+			Init();
 			//Console.WriteLine($"Test register result: {TestRegisters()}");
 		}
 
@@ -1234,10 +1234,6 @@ namespace Brackethouse.GB
 		void Init()
 		{
 			InitOpCodes();
-			if (CPUMode == GameBoyType.GameBoyColor)
-			{
-				OpCodes[0x10] = () => { StopColor(); };
-			}
 			// https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers
 			// Lets try DMG values
 			const ushort startingPoint = 0x0100;
@@ -1247,6 +1243,14 @@ namespace Brackethouse.GB
 			Registers[R16.HL] = 0x014d;
 			Registers[R16.PC] = startingPoint;
 			Registers[R16.SP] = 0xfffe;
+			if (CPUMode == GameBoyType.GameBoyColor)
+			{
+				OpCodes[0x10] = () => { StopColor(); };
+				Registers[R16.AF] = 0x1180;
+				Registers[R16.BC] = 0x0000;
+				Registers[R16.DE] = 0xff56;
+				Registers[R16.HL] = 0x000d;
+			}
 		}
 
 		public void Step()
