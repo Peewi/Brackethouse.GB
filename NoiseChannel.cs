@@ -13,7 +13,6 @@
 		int FrequencyTimer = 0;
 		int LengthTimer = 0;
 
-		byte PrevDIVBit = 0;
 		byte DIVAPU = 0;
 
 		int EnvelopePace = 0;
@@ -91,12 +90,9 @@
 				}
 			}
 			// https://gbdev.io/pandocs/Audio_details.html#div-apu
-			byte div = IO[0xff04];
-			const int DIVAPUMask = 0x10;
-			div &= DIVAPUMask;
-			if (PrevDIVBit != 0 && div == 0)
+			if (IO.AudioTimerTick != 0)
 			{
-				DIVAPU++;
+				DIVAPU += IO.AudioTimerTick;
 				if ((DIVAPU % 8) == 0 && EnvelopePace != 0)
 				{
 					// Envelope sweep
@@ -115,7 +111,6 @@
 					ChannelEnable &= LengthCounter > 0;
 				}
 			}
-			PrevDIVBit = div;
 		}
 
 		void Shift()

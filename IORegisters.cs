@@ -18,6 +18,7 @@ namespace Brackethouse.GB
 		public const ushort InterruptFlagAddress = 0xff0f;
 		const ushort TimerControlAddress = 0xff07;
 		public const ushort OAMDMAAddress = 0xff46;
+		public byte AudioTimerTick { get; private set; } = 0;
 
 		byte[] IOMem = new byte[0x80];
 		int DIVTimer = 0;
@@ -110,9 +111,17 @@ namespace Brackethouse.GB
 			byte TACClockSelect = (byte)(this[TimerControlAddress] & 0b00_00_00_11);
 			// DIV always counts up
 			DIVTimer += ticks;
+			int oldDiv = this[DividerAddress];
 			int newDiv = this[DividerAddress] + DIVTimer / TicksPerInc[3];
 			DIVTimer %= TicksPerInc[3];
 			this[DividerAddress] = (byte)newDiv;
+			// Audio timer
+			AudioTimerTick = 0;
+			const int audioMask = 0x10;
+			if ((oldDiv & audioMask) != 0 && (newDiv & audioMask) == 0)
+			{
+				AudioTimerTick = 1;
+			}
 			// TIMA only counts up when enabled.
 			if (TACEnable)
 			{

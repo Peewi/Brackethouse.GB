@@ -17,8 +17,6 @@
 		const int LengthLimit = 256;
 		int Volume;
 
-		const int DIVAPUMask = 0x10;
-		byte PrevDIVBit = 0;
 		byte DIVAPU = 0;
 
 		int WavePosition = 1;
@@ -62,19 +60,13 @@
 			}
 			LengthEnable = lengthEnable;
 			// https://gbdev.io/pandocs/Audio_details.html#div-apu
-			byte div = IO[0xff04];
-			div &= DIVAPUMask;
-			if (PrevDIVBit != 0 && div == 0)
+			DIVAPU += IO.AudioTimerTick;
+			if ((DIVAPU % 2) == 0 && LengthEnable && IO.AudioTimerTick != 0)
 			{
-				DIVAPU++;
-				if ((DIVAPU % 2) == 0 && LengthEnable)
-				{
-					// Sound length
-					LengthTimer++;
-					ChannelEnable &= LengthTimer < LengthLimit;
-				}
+				// Sound length
+				LengthTimer++;
+				ChannelEnable &= LengthTimer < LengthLimit;
 			}
-			PrevDIVBit = div;
 
 			TickCounter += ticks;
 			while (TickCounter >= TicksPerPeriod)

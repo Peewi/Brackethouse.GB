@@ -2,8 +2,6 @@
 {
 	internal class PulseWaveChannel : AudioChannel
 	{
-		const int DIVAPUMask = 0x10;
-		byte PrevDIVBit = 0;
 		byte DIVAPU = 0;
 		readonly IORegisters IO;
 		readonly ushort StartAddress;
@@ -95,11 +93,9 @@
 				PeriodSweepDirection = (IO[Ch1SweepAddress] & 0x08) == 0 ? 1 : -1;
 			}
 			// https://gbdev.io/pandocs/Audio_details.html#div-apu
-			byte div = IO[0xff04];
-			div &= DIVAPUMask;
-			if (PrevDIVBit != 0 && div == 0)
+			if (IO.AudioTimerTick != 0)
 			{
-				DIVAPU++;
+				DIVAPU += IO.AudioTimerTick;
 				if (VolumeSweepPace != 0 && (DIVAPU % 8) == 0)
 				{
 					// Envelope sweep
@@ -143,7 +139,6 @@
 					ChannelEnable &= Timer < 64;
 				}
 			}
-			PrevDIVBit = div;
 			//
 			TickCounter += ticks;
 			int sweepDir = (byte)(IO[VolumeAddress] & 0x08) == 0 ? -1 : 1;
