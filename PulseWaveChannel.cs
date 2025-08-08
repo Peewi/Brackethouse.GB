@@ -6,7 +6,6 @@
 		byte PrevDIVBit = 0;
 		byte DIVAPU = 0;
 		readonly IORegisters IO;
-		ushort PreviousCPUTick = 0;
 		readonly ushort StartAddress;
 		readonly bool PeriodSweepEnable;
 		/// <summary>
@@ -45,15 +44,8 @@
 			StartAddress = startAddr;
 			PeriodSweepEnable = periodSweep;
 		}
-		public override void Step(ushort tick)
+		public override void Step(ushort ticks)
 		{
-			int ticks = tick - PreviousCPUTick;
-			if (ticks < 0)
-			{
-				ticks += ushort.MaxValue + 1;
-			}
-			PreviousCPUTick = tick;
-
 			int initialLength = IO[DutyAddress] & 0x3f;
 			byte initialVolume = (byte)(IO[VolumeAddress] & 0xf0);
 			initialVolume >>= 4;

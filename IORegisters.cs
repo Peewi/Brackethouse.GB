@@ -20,7 +20,6 @@ namespace Brackethouse.GB
 		public const ushort OAMDMAAddress = 0xff46;
 
 		byte[] IOMem = new byte[0x80];
-		ushort PreviousCPUTick = 0;
 		int DIVTimer = 0;
 		int TIMATimer = 0;
 		/// <summary>
@@ -103,14 +102,9 @@ namespace Brackethouse.GB
 		{
 			return address >= IORegistersStart && address <= IORegistersEnd;
 		}
-		public void StepTimerRegisters(ushort tick)
+		public void StepTimerRegisters(ushort ticks)
 		{
 			// https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
-			int ticks = tick - PreviousCPUTick;
-			if (ticks < 0)
-			{
-				ticks += ushort.MaxValue + 1;
-			}
 
 			bool TACEnable = (this[TimerControlAddress] & 0b00_00_01_00) != 0;
 			byte TACClockSelect = (byte)(this[TimerControlAddress] & 0b00_00_00_11);
@@ -135,8 +129,6 @@ namespace Brackethouse.GB
 				}
 				this[TimerCounterAddress] = (byte)newCount;
 			}
-
-			PreviousCPUTick = tick;
 		}
 	}
 }

@@ -14,7 +14,6 @@ namespace Brackethouse.GB
 		const ushort SerialDataAddress = 0xff01;
 		const ushort SerialControlAddress = 0xff02;
 		IORegisters IO;
-		ushort PreviousCPUTick = 0;
 		int TransferTicks = 0;
 		bool TransferInProgress = false;
 		const int TicksPerBitTransferred = 512;
@@ -24,13 +23,8 @@ namespace Brackethouse.GB
 			IO = io;
 		}
 
-		public void Step(ushort tick)
+		public void Step(ushort ticks)
 		{
-			int ticks = tick - PreviousCPUTick;
-			if (ticks < 0)
-			{
-				ticks += ushort.MaxValue + 1;
-			}
 			const byte TransferStartMask = 0x81;
 			bool startTransfer = (IO[SerialControlAddress] & TransferStartMask) == TransferStartMask;
 			if (!TransferInProgress && startTransfer)
@@ -55,7 +49,6 @@ namespace Brackethouse.GB
 					}
 				}
 			}
-			PreviousCPUTick = tick;
 		}
 		void TransferDone()
 		{

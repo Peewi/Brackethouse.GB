@@ -7,7 +7,6 @@
 	{
 		readonly IORegisters IO;
 		readonly ushort StartAddress;
-		ushort PreviousCPUTick = 0;
 		ushort LFSR = 0;
 		bool ShortLFSR = false;
 		byte Volume = 0;
@@ -34,15 +33,8 @@
 			IO = io;
 			StartAddress = startAddr;
 		}
-		public override void Step(ushort tick)
+		public override void Step(ushort ticks)
 		{
-			int ticks = tick - PreviousCPUTick;
-			if (ticks < 0)
-			{
-				ticks += ushort.MaxValue + 1;
-			}
-			PreviousCPUTick = tick;
-
 			byte initialLength = (byte)(IO[LengthAddress] & 0x3f);
 
 			byte initialVolume = (byte)(IO[VolumeAddress] & 0xf0);

@@ -7,7 +7,6 @@
 	{
 		readonly IORegisters IO;
 		readonly ushort StartAddress;
-		ushort PreviousCPUTick = 0;
 
 		int PeriodDivider = 0;
 		int TickCounter = 0;
@@ -34,15 +33,8 @@
 			IO = io;
 			StartAddress = startAddr;
 		}
-		public override void Step(ushort tick)
+		public override void Step(ushort ticks)
 		{
-			int ticks = tick - PreviousCPUTick;
-			if (ticks < 0)
-			{
-				ticks += ushort.MaxValue + 1;
-			}
-			PreviousCPUTick = tick;
-
 			bool dacOnOff = (IO[DACAddress] & Bit7Mask) != 0;
 			byte initialLength = IO[LengthAddress];
 			byte outLevel = (byte)(IO[OutLevelAddress] >> 5);

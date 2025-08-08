@@ -49,7 +49,6 @@ namespace Brackethouse.GB
 		public const ushort LYCompareAddress = 0xff45;
 		int LineTicks = 0;
 		int OffTicks = 0;
-		ushort PreviousCPUTick = 0;
 		public const int VRAMSize = 0x2000;
 		byte[] VRAM = new byte[VRAMSize];
 		public const int OAMSize = 40;
@@ -122,26 +121,24 @@ namespace Brackethouse.GB
 		/// Call after each CPU instruction.
 		/// </summary>
 		/// <param name="tick">ticks from the CPU, for synchronization.</param>
-		public void Step(ushort tick)
+		public void Step(ushort ticks)
 		{
 			CheckLCDControl();
 			if (!LCDEnable)
 			{
-				OffTicks += 4;
+				OffTicks += ticks;
 				Frame += OffTicks / TicksPerFrame;
 				OffTicks %= TicksPerFrame;
 				LineTicks = 0;
 				PixelX = 0;
 				PixelY = 0;
 				Mode = Modes.HBlank;
-				PreviousCPUTick = tick;
 			}
 			BackgroundPalette = IO[BGPaletteAddress];
 			ObjectPalette[0] = IO[Ob0PaletteAddress];
 			ObjectPalette[1] = IO[Ob1PaletteAddress];
-			while (tick != PreviousCPUTick)
+			for (int i = 0; i < ticks; i++)
 			{
-				PreviousCPUTick++;
 				Dot();
 			}
 			UpdateLCDStatus();

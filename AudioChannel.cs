@@ -27,6 +27,6 @@ namespace Brackethouse.GB
 		/// Call during APU Step.
 		/// </summary>
 		/// <param name="tick">Tick value from CPU</param>
-		public abstract void Step(ushort tick);
+		public abstract void Step(ushort ticks);
 	}
 }

@@ -51,11 +51,11 @@ namespace Brackethouse.GB
 			{
 				CPU.Step();
 				stepTicks += CPU.StepTicks;
-				Serial.Step(CPU.TState);
+				Serial.Step(CPU.StepTicks);
 				Input.CPUStep();
-				Graphics.Step(CPU.TState);
-				IO.StepTimerRegisters(CPU.TState);
-				Audio.Step(CPU.TState);
+				Graphics.Step(CPU.StepTicks);
+				IO.StepTimerRegisters(CPU.StepTicks);
+				Audio.Step(CPU.StepTicks);
 				if (Frame != Graphics.Frame)
 				{
 					Frame = Graphics.Frame;

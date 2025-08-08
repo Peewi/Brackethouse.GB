@@ -7,7 +7,6 @@ namespace Brackethouse.GB
 	class APU
 	{
 		IORegisters IO;
-		ushort PreviousCPUTick = 0;
 		const ushort ch1Start = 0xff10;
 		const ushort ch2Start = 0xff15;
 		const ushort ch3Start = 0xff1a;
@@ -17,9 +16,8 @@ namespace Brackethouse.GB
 		const ushort MasterControl = 0xff26;
 		const int DIVAPUMask = 0x10;
 
-		const int CPUClock = 0x40_0000;
 		public const int OutputFrequency = 48_000;
-		const double TicksPerOutputSample = CPUClock / (double)OutputFrequency;
+		const double TicksPerOutputSample = CPU.ClockFrequency / (double)OutputFrequency;
 		/// <summary>
 		/// How many bytes should be in the audio buffer.
 		/// </summary>
@@ -61,14 +59,8 @@ namespace Brackethouse.GB
 		/// <summary>
 		/// Call after every CPU instruction
 		/// </summary>
-		public void Step(ushort tick)
-		{
-			int ticks = tick - PreviousCPUTick;
-			if (ticks < 0)
+		public void Step(ushort ticks)
 			{
-				ticks += ushort.MaxValue + 1;
-			}
-			PreviousCPUTick = tick;
 			TimeAvailable += ticks;
 
 			const byte bit7Mask = 0x80;
@@ -86,7 +78,7 @@ namespace Brackethouse.GB
 			}
 			foreach (AudioChannel chnl in Channels)
 			{
-				chnl.Step(tick);
+				chnl.Step(ticks);
 			}
 			// show on/off status in master control
 			byte masterControlValue = 0;
