@@ -49,6 +49,7 @@ namespace Brackethouse.GB
 			Input.FrameStep();
 			while (stepTicks < PPU.TicksPerFrame)
 			{
+				IO.BeforeCPUStep();
 				CPU.Step();
 				stepTicks += CPU.StepTicks;
 				Serial.Step((ushort)(CPU.StepTicks << CPU.SpeedShift));

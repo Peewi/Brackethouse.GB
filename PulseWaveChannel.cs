@@ -49,7 +49,7 @@
 			initialVolume >>= 4;
 
 			int period = IO[PeriodAddress] + ((IO[ControlAddress] & Bit012Mask) << 8);
-			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0;
+			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0 && IO.WrittenAddress == ControlAddress;
 			bool lengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
 			// Turn off if these bits are zero.
 			DACPower = (IO[VolumeAddress] & Bit34567Mask) != 0;
@@ -70,7 +70,6 @@
 					PeriodSweepDirection = (IO[Ch1SweepAddress] & 0x08) == 0 ? 1 : -1;
 					PeriodSweepPace = (IO[Ch1SweepAddress] >> 4) & Bit012Mask;
 				}
-				IO[ControlAddress] &= Bit0123456Mask;
 			}
 			ChannelEnable &= DACPower;
 			if (!ChannelEnable)

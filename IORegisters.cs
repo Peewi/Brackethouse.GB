@@ -19,6 +19,10 @@ namespace Brackethouse.GB
 		const ushort TimerControlAddress = 0xff07;
 		public const ushort OAMDMAAddress = 0xff46;
 		public byte AudioTimerTick { get; private set; } = 0;
+		/// <summary>
+		/// If the most recent CPU instruction wrote to IO, this shows the address.
+		/// </summary>
+		public ushort WrittenAddress { get; private set; }
 
 		byte[] IOMem = new byte[0x80];
 		int DIVTimer = 0;
@@ -148,8 +152,9 @@ namespace Brackethouse.GB
 			this[0xFF4B] = 0x00;
 		}
 
-		public void CPUWrite(int address, byte value)
+		public void CPUWrite(ushort address, byte value)
 		{
+			WrittenAddress = address;
 			if (address == DividerAddress)
 			{
 				// https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#ff04--div-divider-register
@@ -162,6 +167,10 @@ namespace Brackethouse.GB
 		public static bool AddressIsIO(ushort address)
 		{
 			return address >= IORegistersStart && address <= IORegistersEnd;
+		}
+		public void BeforeCPUStep()
+		{
+			WrittenAddress = 0;
 		}
 		/// <summary>
 		/// Add to timer registers

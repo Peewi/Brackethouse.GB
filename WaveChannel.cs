@@ -37,7 +37,7 @@
 			byte initialLength = IO[LengthAddress];
 			byte outLevel = (byte)(IO[OutLevelAddress] >> 5);
 			int period = IO[PeriodAddress] + ((IO[ControlAddress] & Bit012Mask) << 8);
-			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0;
+			bool trigger = (IO[ControlAddress] & Bit7Mask) != 0 && IO.WrittenAddress == ControlAddress;
 			bool lengthEnable = (IO[ControlAddress] & Bit6Mask) != 0;
 			// Turn off if these bits are zero.
 			DACPower = dacOnOff;
@@ -50,7 +50,6 @@
 				}
 				PeriodDivider = period;
 				Volume = outLevel;
-				IO[ControlAddress] &= Bit0123456Mask;
 			}
 			ChannelEnable &= DACPower;
 			if (!ChannelEnable)
