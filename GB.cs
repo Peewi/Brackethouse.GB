@@ -36,7 +36,14 @@ namespace Brackethouse.GB
 			Display = new SDLDisplay(renderer);
 			IO = new IORegisters(gbType);
 			Input = new SDLJoypad(IO);
-			Graphics = new PPU(IO, Display);
+			if (gbType == GameBoyType.GameBoy)
+			{
+				Graphics = new PPU(IO, Display);
+			}
+			else
+			{
+				Graphics = new PPUColor(IO, Display, compatMode);
+			}
 			Audio = new APU(IO);
 			Serial = new Serial(IO);
 			Memory = new Memory(Cart, Graphics, IO, compatMode);

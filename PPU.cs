@@ -18,6 +18,12 @@ namespace Brackethouse.GB
 			OAMScan = 2,
 			DrawingPixels = 3,
 		}
+		readonly Color[] DisplayColors = [
+			new Color(0xff,0xff,0xff),
+			new Color(0xd3,0xd3,0xd3),
+			new Color(0xa9,0xa9,0xa9),
+			new Color(0x00,0x00,0x00),
+			];
 		const ushort VideoRAMStart = 0x8000;
 		const ushort VideoRAMEnd = 0x9FFF;
 		const ushort ObjectAttributeMemoryStart = 0xFE00;
@@ -27,19 +33,19 @@ namespace Brackethouse.GB
 		const int Ob0PaletteAddress = 0xff48;
 		const int Ob1PaletteAddress = 0xff49;
 
-		const int ObjByteLength = 4;
-		const int ObjOffsetX = 8;
-		const int ObjOffsetY = 16;
-		const int ObjWidth = 8;
-		const int ObjBaseHeight = 8;
+		protected const int ObjByteLength = 4;
+		protected const int ObjOffsetX = 8;
+		protected const int ObjOffsetY = 16;
+		protected const int ObjWidth = 8;
+		protected const int ObjBaseHeight = 8;
 
-		readonly IORegisters IO;
+		protected readonly IORegisters IO;
 		Modes Mode = Modes.OAMScan;
-		byte PixelX;
-		byte PixelY;
+		protected byte PixelX;
+		protected byte PixelY;
 		bool WindowFrameEnable = false;
-		const byte Width = 160;
-		const byte Height = 144;
+		public const byte Width = 160;
+		public const byte Height = 144;
 		const byte ScanLines = 154;
 		const int TicksPerLine = 456;
 		public const int TicksPerFrame = TicksPerLine * ScanLines;
@@ -50,22 +56,26 @@ namespace Brackethouse.GB
 		int LineTicks = 0;
 		int OffTicks = 0;
 		public const int VRAMSize = 0x2000;
-		byte[] VRAM = new byte[VRAMSize];
+		protected byte[] VRAM = new byte[VRAMSize];
 		public const int OAMSize = 40;
 		public const int OAMSizeBytes = OAMSize * 4;
-		byte[] OAM = new byte[OAMSizeBytes];
+		protected byte[] OAM = new byte[OAMSizeBytes];
 		public int Frame { get; private set; } = 0;
 
-		byte LineObjectCount = 0;
-		const int MaxObjectsPerLine = 10;
-		byte[] LineObjects = new byte[MaxObjectsPerLine];
+		protected byte LineObjectCount = 0;
+		protected const int MaxObjectsPerLine = 10;
+		protected byte[] LineObjects = new byte[MaxObjectsPerLine];
 		byte BackgroundPalette = 0;
 		byte[] ObjectPalette = [0, 0];
 		/// <summary>
-		/// Bit 0 of LCD Control.
+		/// Bit 0 of LCD Control (on DMG). 
 		/// Controls whether the background is drawn.
 		/// </summary>
-		bool BGEnable;
+		protected bool BGEnable;
+		/// <summary>
+		/// Whether to prioritize background over objects. Only for CGB.
+		/// </summary>
+		protected bool BGPriority;
 		/// <summary>
 		/// Bit 1 of LCD Control.
 		/// Controls whether objects are drawn.
@@ -75,7 +85,7 @@ namespace Brackethouse.GB
 		/// Bit 2 of LCD Control.
 		/// Controls whether objects are 8 or 16 pixels tall.
 		/// </summary>
-		bool ObjectSize;
+		protected bool ObjectSize;
 		/// <summary>
 		/// Bit 3 of LCD Control.
 		/// Controls which tilemap is used for the background.
@@ -134,9 +144,7 @@ namespace Brackethouse.GB
 				PixelY = 0;
 				Mode = Modes.HBlank;
 			}
-			BackgroundPalette = IO[BGPaletteAddress];
-			ObjectPalette[0] = IO[Ob0PaletteAddress];
-			ObjectPalette[1] = IO[Ob1PaletteAddress];
+			ReadIO();
 			for (int i = 0; i < ticks; i++)
 			{
 				Dot();
@@ -144,6 +152,16 @@ namespace Brackethouse.GB
 			UpdateLCDStatus();
 			IO[LYAddress] = PixelY;
 		}
+		/// <summary>
+		/// Read some specific values from IO.
+		/// </summary>
+		protected virtual void ReadIO()
+		{
+			BackgroundPalette = IO[BGPaletteAddress];
+			ObjectPalette[0] = IO[Ob0PaletteAddress];
+			ObjectPalette[1] = IO[Ob1PaletteAddress];
+		}
+
 		/// <summary>
 		/// PPU sub-step.
 		/// </summary>
@@ -230,7 +248,7 @@ namespace Brackethouse.GB
 			}
 		}
 
-		void CheckLCDControl()
+		protected virtual void CheckLCDControl()
 		{
 			byte lcdc = IO[LCDCAddress];
 			BGEnable = (0b0000_0001 & lcdc) != 0;
@@ -259,7 +277,7 @@ namespace Brackethouse.GB
 			byte tilemapPosY = y;
 			tilemapPosY += sy;
 
-			byte bgPixel = 0;
+			ColorIndex bgPixel = new(0, 0, Layer.Background, false);
 			if (BGEnable)
 			{
 				bgPixel = ReadTilemapPixel(BGTileMap, BGTileSrc, tilemapPosX, tilemapPosY);
@@ -278,36 +296,57 @@ namespace Brackethouse.GB
 					}
 				}
 			}
-			byte objPixel = 0;
+			ColorIndex objPixel = new ColorIndex();
 			if (ObjectEnable)
 			{
 				objPixel = ReadObjectPixel();
 			}
-			bool objPriority = (objPixel & 0b1000_0000) != 0;
-			int objPaletteSelect = (objPixel & 0b0001_0000) >> 4;
-			byte activeObjPal = ObjectPalette[objPaletteSelect];
-			objPixel &= 3;
-			// Apply palette
-			byte bgPalPixel = (byte)((BackgroundPalette & PaletteMask[bgPixel]) >> (bgPixel * 2));
-			byte objPalPixel = (byte)((activeObjPal & PaletteMask[objPixel]) >> (objPixel * 2));
-
-			byte finalPixel = bgPalPixel;
-			if (objPixel > 0)
+			Color pixelColor = GetColor(PrioritySelect(objPixel, bgPixel, BGPriority));
+			Display.SetPixel(PixelX, PixelY, pixelColor);
+		}
+		/// <summary>
+		/// Determine whether to draw background or object.
+		/// </summary>
+		/// <param name="obj">Object color index (with priority)</param>
+		/// <param name="bg">Background color index (with priority)</param>
+		/// <param name="priorityBit">LCDC bit 0. Only used in color mode</param>
+		/// <returns>The color index to draw.</returns>
+		protected virtual ColorIndex PrioritySelect(ColorIndex obj, ColorIndex bg, bool priorityBit)
+		{
+			if (obj.BackgroundPriority && bg.Index > 0)
 			{
-				finalPixel = objPalPixel;
+				return bg;
 			}
-			if (objPriority && bgPixel > 0)
+			if (obj.Index > 0)
 			{
-				finalPixel = bgPalPixel;
+				return obj;
 			}
-			
-			Display.SetPixel(PixelX, PixelY, finalPixel);
+			return bg;
+		}
+		/// <summary>
+		/// Get a color from the color palettes.
+		/// </summary>
+		/// <param name="index">Where to look.</param>
+		/// <returns>A color</returns>
+		protected virtual Color GetColor(ColorIndex index)
+		{
+			byte palette;
+			if (index.Layer == Layer.Background)
+			{
+				palette = BackgroundPalette;
+			}
+			else
+			{
+				palette = ObjectPalette[index.Palette];
+			}
+			int finalIndex = (palette & PaletteMask[index.Index]) >> (index.Index * 2);
+			return DisplayColors[finalIndex];
 		}
 		/// <summary>
 		/// Check objects for current pixel and OAM scan and get a color index.
 		/// </summary>
 		/// <returns>Bits 0 and 1 are color index. Bits 4 and 7 are the palette and priority bits from the object properties.</returns>
-		public byte ReadObjectPixel()
+		protected virtual ColorIndex ReadObjectPixel()
 		{
 			int height = ObjBaseHeight;
 			if (ObjectSize)
@@ -315,8 +354,7 @@ namespace Brackethouse.GB
 				height += ObjBaseHeight;
 			}
 			byte minX = byte.MaxValue;
-			byte pixel = 0;
-			byte pxAttrib = 0;
+			ColorIndex pixelIndex = new ColorIndex(0, 0, Layer.Object, false);
 			for (int i = 0; i < LineObjectCount; i++)
 			{
 				byte objStart = (byte)(LineObjects[i] * ObjByteLength);
@@ -324,7 +362,7 @@ namespace Brackethouse.GB
 				byte x = OAM[objStart + 1];
 
 				bool objectCoversPixel = PixelX >= x - ObjOffsetX && PixelX < x - ObjOffsetX + ObjWidth;
-				if (objectCoversPixel && (pixel == 0 || x < minX))
+				if (objectCoversPixel && (pixelIndex.Index == 0 || x < minX))
 				{
 					minX = x;
 					byte tileIndex = OAM[objStart + 2];
@@ -332,7 +370,8 @@ namespace Brackethouse.GB
 					byte priority = (byte)(flags & 0b1000_0000);
 					byte yFlip = (byte)((flags & 0b0100_0000) >> 6);
 					byte xFlip = (byte)((flags & 0b0010_0000) >> 5);
-					byte palet = (byte)(flags & 0b0001_0000);
+					byte palet = (byte)(flags & 0b0001_0000); // DMG palette
+					palet >>= 4;
 
 					byte tileX = (byte)(PixelX - (x - ObjOffsetX));
 					byte tileY = (byte)(PixelY - (y - ObjOffsetY));
@@ -343,8 +382,8 @@ namespace Brackethouse.GB
 					{
 						// For 16 pixel tall objects, control which object is read from.
 						//https://gbdev.io/pandocs/OAM.html#byte-2--tile-index
-							tileIndex &= 0b1111_1110;
-						}
+						tileIndex &= 0b1111_1110;
+					}
 					ushort tileStart = (ushort)(0x8000 + tileIndex * 16);
 
 					byte bitMask = (byte)(1 << tileX);
@@ -354,15 +393,11 @@ namespace Brackethouse.GB
 					newpixel |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tileX) << 1);
 					if (newpixel != 0)
 					{
-						pixel = newpixel;
-						pxAttrib = 0;
-						pxAttrib |= priority;
-						pxAttrib |= palet;
+						pixelIndex = new ColorIndex(newpixel, palet, Layer.Object, priority != 0);
 					}
 				}
 			}
-			pixel |= pxAttrib;
-			return pixel;
+			return pixelIndex;
 		}
 		/// <summary>
 		/// Read a pixel from a tilemap
@@ -372,9 +407,9 @@ namespace Brackethouse.GB
 		/// <param name="mapX">X position for where to read from</param>
 		/// <param name="mapY">Y position for where to read from</param>
 		/// <returns>A 2-bit color read from the tilemap. Palette has NOT been applied.</returns>
-		byte ReadTilemapPixel(bool Altmap, bool altTiles, byte mapX, byte mapY)
+		protected virtual ColorIndex ReadTilemapPixel(bool Altmap, bool altTiles, byte mapX, byte mapY)
 		{
-			byte tilesizePx = 8;
+			const byte tilesizePx = 8;
 			byte tileX = mapX;
 			tileX /= tilesizePx;
 			byte tileY = mapY;
@@ -407,7 +442,7 @@ namespace Brackethouse.GB
 			ushort byte2 = (ushort)(byte1 + 1);
 			byte data = (byte)((SelfReadVRAM(byte1) & bitMask) >> tilePX);
 			data |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tilePX) << 1);
-			return data;
+			return new ColorIndex(data, 0, Layer.Background, false);
 		}
 		/// <summary>
 		/// Do the OAM scan, but in all one go instead of over 80 ticks like on real hardware.
@@ -468,7 +503,7 @@ namespace Brackethouse.GB
 					byte data = (byte)((SelfReadVRAM(byte1) & bitMask) >> tilePX);
 					data |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tilePX) << 1);
 
-					Display.SetPixel((byte)x, (byte)y, data);
+					//Display.SetPixel((byte)x, (byte)y, data);
 				}
 			}
 			Display.Output();
@@ -478,7 +513,7 @@ namespace Brackethouse.GB
 		/// </summary>
 		/// <param name="address">Memory address to read from</param>
 		/// <returns>Value at given address, or 0xff if the PPU is currently drawing pixels</returns>
-		public byte CPUReadVRAM(int address)
+		virtual public byte CPUReadVRAM(int address)
 		{
 			if (Mode == Modes.DrawingPixels && LCDEnable)
 			{
@@ -491,7 +526,7 @@ namespace Brackethouse.GB
 		/// </summary>
 		/// <param name="address">Memory address to read from</param>
 		/// <returns>Value at given address</returns>
-		byte SelfReadVRAM(int address)
+		virtual protected byte SelfReadVRAM(int address)
 		{
 			return VRAM[address - VideoRAMStart];
 		}
@@ -501,7 +536,7 @@ namespace Brackethouse.GB
 		/// </summary>
 		/// <param name="address">Memory address to write to.</param>
 		/// <param name="value">Value to write.</param>
-		public void CPUWriteVRAM(int address, byte value)
+		virtual public void CPUWriteVRAM(int address, byte value)
 		{
 			if (Mode == Modes.DrawingPixels && LCDEnable)
 			{
@@ -561,6 +596,25 @@ namespace Brackethouse.GB
 		public static bool AddressIsOAM(ushort address)
 		{
 			return address >= ObjectAttributeMemoryStart && address <= ObjectAttributeMemoryEnd;
+		}
+		protected enum Layer
+		{
+			Object,
+			Background
+		}
+		/// <summary>
+		/// Used to look up a color in the palettes
+		/// </summary>
+		/// <param name="index">Color index</param>
+		/// <param name="palette">Palette index</param>
+		/// <param name="layer">Whether it's object or background</param>
+		/// <param name="priority">Whether to prioritize background</param>
+		protected struct ColorIndex(byte index, byte palette, PPU.Layer layer, bool priority)
+		{
+			public byte Index = index;
+			public byte Palette = palette;
+			public Layer Layer = layer;
+			public bool BackgroundPriority = priority;
 		}
 	}
 }

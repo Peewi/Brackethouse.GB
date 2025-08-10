@@ -60,7 +60,7 @@ namespace Brackethouse.GB
 		/// Call after every CPU instruction
 		/// </summary>
 		public void Step(ushort ticks)
-			{
+		{
 			TimeAvailable += ticks;
 
 			const byte bit7Mask = 0x80;
