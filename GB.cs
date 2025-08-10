@@ -21,6 +21,9 @@ namespace Brackethouse.GB
 		int Frame = -1;
 		Stopwatch Time = new Stopwatch();
 		public string GameTitle => Cart.Title;
+#if DEBUG
+		int AudioDebugPrev = 0;
+#endif
 		public GB(GameBoyType gbType, string cartPath, string savePath, nint renderer)
 		{
 			Cart = Cartridge.FromFile(cartPath, savePath);
@@ -69,6 +72,14 @@ namespace Brackethouse.GB
 					Frame = Graphics.Frame;
 					Display.Output();
 				}
+#if DEBUG
+				int audioDebug = Audio.DEBUGNUM / 60;
+				if (audioDebug != AudioDebugPrev)
+				{
+					AudioDebugPrev = audioDebug;
+					Console.WriteLine($"Filled {audioDebug} seconds of audio, time: {Time.Elapsed}");
+				}
+#endif
 			}
 			if (Frame % 60 == 0)
 			{
