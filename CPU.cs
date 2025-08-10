@@ -1276,8 +1276,8 @@ namespace Brackethouse.GB
 							Push(R16.PC);
 							Jump(InterruptTargets[i]);
 							StepTicks = 20;
-							TState += StepTicks;
 							StepTicks >>= SpeedShift;
+							TState += StepTicks;
 							return;
 						}
 					}
