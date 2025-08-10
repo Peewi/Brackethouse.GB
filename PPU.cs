@@ -145,9 +145,12 @@ namespace Brackethouse.GB
 				Mode = Modes.HBlank;
 			}
 			ReadIO();
-			for (int i = 0; i < ticks; i++)
+			if (LCDEnable)
 			{
-				Dot();
+				for (int i = 0; i < ticks; i++)
+				{
+					Dot();
+				}
 			}
 			UpdateLCDStatus();
 			IO[LYAddress] = PixelY;
