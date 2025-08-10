@@ -1,7 +1,15 @@
 {
-  "profiles": {
-    "Brackethouse.GB": {
-      "commandName": "Project"
-    }
-  }
+	"profiles": {
+		"Brackethouse.GB": {
+			"commandName": "Project"
+		},
+		"gb mode": {
+			"commandName": "Project",
+			"commandLineArgs": "gb"
+		},
+		"color mode": {
+			"commandName": "Project",
+			"commandLineArgs": "gbc"
+		}
+	}
 }

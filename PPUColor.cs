@@ -24,12 +24,38 @@ namespace Brackethouse.GB
 			CompatibilityMode = compatMode;
 			if (CompatibilityMode != GameBoyType.GameBoyColor)
 			{
+				SetCompatibilityPalettes();
 				return;
 			}
 			VRAM = new byte[VRAMSize * 2];
 			for (int i = 0; i < BackgroundPaletteMemory.Length; i++)
 			{
 				BackgroundPaletteMemory[i] = 0xff;
+			}
+		}
+		void SetCompatibilityPalettes()
+		{
+			// TODO: proper palette support for DMG game on CGB
+			// for 8 palettes
+			for (int i = 0; i < 8; i++)
+			{
+				BackgroundPaletteMemory[i * 8 + 0] = 0xff;
+				BackgroundPaletteMemory[i * 8 + 1] = 0xff;
+				BackgroundPaletteMemory[i * 8 + 2] = 0x5a;
+				BackgroundPaletteMemory[i * 8 + 3] = 0x6b;
+				BackgroundPaletteMemory[i * 8 + 4] = 0xb5;
+				BackgroundPaletteMemory[i * 8 + 5] = 0x56;
+				BackgroundPaletteMemory[i * 8 + 6] = 0x00;
+				BackgroundPaletteMemory[i * 8 + 7] = 0x00;
+
+				ObjectPaletteMemory[i * 8 + 0] = 0xff;
+				ObjectPaletteMemory[i * 8 + 1] = 0xff;
+				ObjectPaletteMemory[i * 8 + 2] = 0x5a;
+				ObjectPaletteMemory[i * 8 + 3] = 0x6b;
+				ObjectPaletteMemory[i * 8 + 4] = 0xb5;
+				ObjectPaletteMemory[i * 8 + 5] = 0x56;
+				ObjectPaletteMemory[i * 8 + 6] = 0x00;
+				ObjectPaletteMemory[i * 8 + 7] = 0x00;
 			}
 		}
 		/// <summary>
@@ -84,6 +110,10 @@ namespace Brackethouse.GB
 		}
 		protected override ColorIndex ReadTilemapPixel(bool Altmap, bool altTiles, byte mapX, byte mapY)
 		{
+			if (CompatibilityMode != GameBoyType.GameBoyColor)
+			{
+				return base.ReadTilemapPixel(Altmap, altTiles, mapX, mapY);
+			}
 			const byte tilesizePx = 8;
 			byte tileX = mapX;
 			tileX /= tilesizePx;
