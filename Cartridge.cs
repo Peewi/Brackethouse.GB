@@ -253,7 +253,7 @@ namespace Brackethouse.GB
 			}
 			if (AddressIsExternalRAM(address))
 			{
-				if (!RAMEnable)
+				if (!RAMEnable || RAMBankCount == 0)
 				{
 					return 0xff;
 				}
@@ -324,7 +324,7 @@ namespace Brackethouse.GB
 			}
 			if (AddressIsExternalRAM(address))
 			{
-				if (!RAMEnable)
+				if (!RAMEnable || RAMBankCount == 0)
 				{
 					return;
 				}
@@ -467,7 +467,7 @@ namespace Brackethouse.GB
 			}
 			if (address >= ExternalRAMStartAddress && address <= 0xbfff)
 			{
-				if (!RAMEnable)
+				if (!RAMEnable || RAMBankCount == 0)
 				{
 					return;
 				}
@@ -536,7 +536,7 @@ namespace Brackethouse.GB
 			}
 			if (address >= ExternalRAMStartAddress && address <= 0xbfff)
 			{
-				if (!RAMEnable)
+				if (!RAMEnable || RAMBankCount == 0)
 				{
 					return;
 				}
