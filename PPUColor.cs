@@ -33,30 +33,40 @@ namespace Brackethouse.GB
 				BackgroundPaletteMemory[i] = 0xff;
 			}
 		}
+		/// <summary>
+		/// Set the color palettes to display DMG games.
+		/// Right now it just sets a grayscale palette.
+		/// </summary>
 		void SetCompatibilityPalettes()
 		{
-			// TODO: proper palette support for DMG game on CGB
-			// for 8 palettes
-			for (int i = 0; i < 8; i++)
-			{
-				BackgroundPaletteMemory[i * 8 + 0] = 0xff;
-				BackgroundPaletteMemory[i * 8 + 1] = 0xff;
-				BackgroundPaletteMemory[i * 8 + 2] = 0x5a;
-				BackgroundPaletteMemory[i * 8 + 3] = 0x6b;
-				BackgroundPaletteMemory[i * 8 + 4] = 0xb5;
-				BackgroundPaletteMemory[i * 8 + 5] = 0x56;
-				BackgroundPaletteMemory[i * 8 + 6] = 0x00;
-				BackgroundPaletteMemory[i * 8 + 7] = 0x00;
-
-				ObjectPaletteMemory[i * 8 + 0] = 0xff;
-				ObjectPaletteMemory[i * 8 + 1] = 0xff;
-				ObjectPaletteMemory[i * 8 + 2] = 0x5a;
-				ObjectPaletteMemory[i * 8 + 3] = 0x6b;
-				ObjectPaletteMemory[i * 8 + 4] = 0xb5;
-				ObjectPaletteMemory[i * 8 + 5] = 0x56;
-				ObjectPaletteMemory[i * 8 + 6] = 0x00;
-				ObjectPaletteMemory[i * 8 + 7] = 0x00;
-			}
+			// TODO: multiple palettes
+			// Background
+			BackgroundPaletteMemory[0] = 0xff;
+			BackgroundPaletteMemory[1] = 0xff;
+			BackgroundPaletteMemory[2] = 0x5a;
+			BackgroundPaletteMemory[3] = 0x6b;
+			BackgroundPaletteMemory[4] = 0xb5;
+			BackgroundPaletteMemory[5] = 0x56;
+			BackgroundPaletteMemory[6] = 0x00;
+			BackgroundPaletteMemory[7] = 0x00;
+			// Object 0
+			ObjectPaletteMemory[0 * 8 + 0] = 0xff;
+			ObjectPaletteMemory[0 * 8 + 1] = 0xff;
+			ObjectPaletteMemory[0 * 8 + 2] = 0x5a;
+			ObjectPaletteMemory[0 * 8 + 3] = 0x6b;
+			ObjectPaletteMemory[0 * 8 + 4] = 0xb5;
+			ObjectPaletteMemory[0 * 8 + 5] = 0x56;
+			ObjectPaletteMemory[0 * 8 + 6] = 0x00;
+			ObjectPaletteMemory[0 * 8 + 7] = 0x00;
+			// Object 1
+			ObjectPaletteMemory[1 * 8 + 0] = 0xff;
+			ObjectPaletteMemory[1 * 8 + 1] = 0xff;
+			ObjectPaletteMemory[1 * 8 + 2] = 0x5a;
+			ObjectPaletteMemory[1 * 8 + 3] = 0x6b;
+			ObjectPaletteMemory[1 * 8 + 4] = 0xb5;
+			ObjectPaletteMemory[1 * 8 + 5] = 0x56;
+			ObjectPaletteMemory[1 * 8 + 6] = 0x00;
+			ObjectPaletteMemory[1 * 8 + 7] = 0x00;
 		}
 		/// <summary>
 		/// Read some specific values from IO.
@@ -240,6 +250,12 @@ namespace Brackethouse.GB
 		}
 		protected override Color GetColor(ColorIndex index)
 		{
+			// When playing DMG game on CGB, use monochrome palettes
+			// to get an index to color palettes.
+			if (CompatibilityMode != GameBoyType.GameBoyColor)
+			{
+				index = ConvertMonochromeIndex(index);
+			}
 			byte[] paletteMem;
 			if (index.Layer == Layer.Background)
 			{

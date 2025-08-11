@@ -333,6 +333,17 @@ namespace Brackethouse.GB
 		/// <returns>A color</returns>
 		protected virtual Color GetColor(ColorIndex index)
 		{
+			int finalIndex = ConvertMonochromeIndex(index).Index;
+			return DisplayColors[finalIndex];
+		}
+		/// <summary>
+		/// Look up monochrome palette to get a color index that can be used
+		/// for the color palettes.
+		/// </summary>
+		/// <param name="index">Color index to monochrome palette</param>
+		/// <returns>Color index to color palette</returns>
+		protected ColorIndex ConvertMonochromeIndex(ColorIndex index)
+		{
 			byte palette;
 			if (index.Layer == Layer.Background)
 			{
@@ -342,8 +353,8 @@ namespace Brackethouse.GB
 			{
 				palette = ObjectPalette[index.Palette];
 			}
-			int finalIndex = (palette & PaletteMask[index.Index]) >> (index.Index * 2);
-			return DisplayColors[finalIndex];
+			index.Index = (byte)((palette & PaletteMask[index.Index]) >> (index.Index * 2));
+			return index;
 		}
 		/// <summary>
 		/// Check objects for current pixel and OAM scan and get a color index.
