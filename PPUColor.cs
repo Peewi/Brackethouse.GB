@@ -111,6 +111,18 @@ namespace Brackethouse.GB
 					IO[ObjPalIndex] = index;
 				}
 			}
+			else if (IO.WrittenAddress == ObjPalIndex)
+			{
+				byte index = IO[ObjPalIndex];
+				index &= 0x3f;
+				IO[ObjPalData] = ObjectPaletteMemory[index];
+			}
+			else if (IO.WrittenAddress == BGPalIndex)
+			{
+				byte index = IO[BGPalIndex];
+				index &= 0x3f;
+				IO[BGPalData] = BackgroundPaletteMemory[index];
+			}
 		}
 		protected override void CheckLCDControl()
 		{
