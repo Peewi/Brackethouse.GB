@@ -71,8 +71,8 @@ namespace Brackethouse.GB
 			{
 				return;
 			}
-			ushort src = (byte)(IO[HDMA1Address] << 8 + IO[HDMA2Address]);
-			ushort dest = (byte)(IO[HDMA3Address] << 8 + IO[HDMA4Address]);
+			ushort src = (ushort)((IO[HDMA1Address] << 8) + IO[HDMA2Address]);
+			ushort dest = (ushort)((IO[HDMA3Address] << 8) + IO[HDMA4Address]);
 			const ushort srcMask = 0xfff0;
 			src &= srcMask;
 			const ushort destMask = 0x1ff0;
@@ -216,8 +216,8 @@ namespace Brackethouse.GB
 
 			if (!hblank)
 			{
-				ushort src = (byte)(IO[HDMA1Address] << 8 + IO[HDMA2Address]);
-				ushort dest = (byte)(IO[HDMA3Address] << 8 + IO[HDMA4Address]);
+				ushort src = (ushort)((IO[HDMA1Address] << 8) + IO[HDMA2Address]);
+				ushort dest = (ushort)((IO[HDMA3Address] << 8) + IO[HDMA4Address]);
 				const ushort srcMask = 0xfff0;
 				src &= srcMask;
 				const ushort destMask = 0x1ff0;
