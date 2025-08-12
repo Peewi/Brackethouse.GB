@@ -6,18 +6,18 @@ using System.Threading.Tasks;
 
 namespace Brackethouse.GB
 {
+	enum PPUMode
+	{
+		HBlank = 0,
+		VBlank = 1,
+		OAMScan = 2,
+		DrawingPixels = 3,
+	}
 	/// <summary>
 	/// Picture Processing Unit
 	/// </summary>
 	class PPU
 	{
-		enum Modes
-		{
-			HBlank = 0,
-			VBlank = 1,
-			OAMScan = 2,
-			DrawingPixels = 3,
-		}
 		readonly Color[] DisplayColors = [
 			new Color(0xff,0xff,0xff),
 			new Color(0xd3,0xd3,0xd3),
@@ -40,7 +40,7 @@ namespace Brackethouse.GB
 		protected const int ObjBaseHeight = 8;
 
 		protected readonly IORegisters IO;
-		Modes Mode = Modes.OAMScan;
+		public PPUMode Mode { get; private set; } = PPUMode.OAMScan;
 		protected byte PixelX;
 		protected byte PixelY;
 		bool WindowFrameEnable = false;
@@ -142,7 +142,7 @@ namespace Brackethouse.GB
 				LineTicks = 0;
 				PixelX = 0;
 				PixelY = 0;
-				Mode = Modes.HBlank;
+				Mode = PPUMode.HBlank;
 			}
 			ReadIO();
 			if (LCDEnable)
@@ -172,27 +172,27 @@ namespace Brackethouse.GB
 		{
 			// https://gbdev.io/pandocs/Rendering.html
 
-			Modes prevMode = Mode;
+			PPUMode prevMode = Mode;
 			if (PixelY < Height)
 			{
 				if (LineTicks == 0)
 				{
 					// I'm just gonna do the OAM scan in one go.
 					OAMScan();
-					Mode = Modes.OAMScan;
+					Mode = PPUMode.OAMScan;
 				}
 				else if (LineTicks == 80)
 				{
-					Mode = Modes.DrawingPixels;
+					Mode = PPUMode.DrawingPixels;
 				}
 			}
-			if (Mode == Modes.DrawingPixels)
+			if (Mode == PPUMode.DrawingPixels)
 			{
 				DrawPixel(PixelX, PixelY);
 				PixelX++;
 				if (PixelX >= Width)
 				{
-					Mode = Modes.HBlank;
+					Mode = PPUMode.HBlank;
 				}
 			}
 			LineTicks++;
@@ -207,16 +207,16 @@ namespace Brackethouse.GB
 					WindowFrameEnable = false;
 				}
 				PixelY %= ScanLines;
-				Mode = PixelY >= Height ? Modes.VBlank : Mode;
+				Mode = PixelY >= Height ? PPUMode.VBlank : Mode;
 			}
 			if (prevMode != Mode)
 			{
 				//https://gbdev.io/pandocs/STAT.html#ff41--stat-lcd-status
-				if (Mode == Modes.HBlank && (IO[LCDStatusAddress] & 0b0000_1000) != 0)
+				if (Mode == PPUMode.HBlank && (IO[LCDStatusAddress] & 0b0000_1000) != 0)
 				{
 					FlagLCDStatusInterrupt();
 				}
-				else if (Mode == Modes.VBlank)
+				else if (Mode == PPUMode.VBlank)
 				{
 					FlagVBlankInterrupt();
 					if ((IO[LCDStatusAddress] & 0b0001_0000) != 0)
@@ -224,7 +224,7 @@ namespace Brackethouse.GB
 						FlagLCDStatusInterrupt();
 					}
 				}
-				else if (Mode == Modes.OAMScan && (IO[LCDStatusAddress] & 0b0010_0000) != 0)
+				else if (Mode == PPUMode.OAMScan && (IO[LCDStatusAddress] & 0b0010_0000) != 0)
 				{
 					FlagLCDStatusInterrupt();
 				}
@@ -529,7 +529,7 @@ namespace Brackethouse.GB
 		/// <returns>Value at given address, or 0xff if the PPU is currently drawing pixels</returns>
 		virtual public byte CPUReadVRAM(int address)
 		{
-			if (Mode == Modes.DrawingPixels && LCDEnable)
+			if (Mode == PPUMode.DrawingPixels && LCDEnable)
 			{
 				return 0xff;
 			}
@@ -552,7 +552,7 @@ namespace Brackethouse.GB
 		/// <param name="value">Value to write.</param>
 		virtual public void CPUWriteVRAM(int address, byte value)
 		{
-			if (Mode == Modes.DrawingPixels && LCDEnable)
+			if (Mode == PPUMode.DrawingPixels && LCDEnable)
 			{
 				return;
 			}
@@ -565,7 +565,7 @@ namespace Brackethouse.GB
 		/// <returns>Value at given address, or 0xff if the PPU is currently drawing pixels</returns>
 		public byte CPUReadOAM(int address)
 		{
-			if ((Mode == Modes.OAMScan || Mode == Modes.DrawingPixels) && LCDEnable)
+			if ((Mode == PPUMode.OAMScan || Mode == PPUMode.DrawingPixels) && LCDEnable)
 			{
 				return 0xff;
 			}
@@ -588,7 +588,7 @@ namespace Brackethouse.GB
 		/// <param name="value">Value to write.</param>
 		public void CPUWriteOAM(int address, byte value)
 		{
-			if ((Mode == Modes.OAMScan || Mode == Modes.DrawingPixels) && LCDEnable)
+			if ((Mode == PPUMode.OAMScan || Mode == PPUMode.DrawingPixels) && LCDEnable)
 			{
 				return;
 			}

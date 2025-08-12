@@ -65,6 +65,7 @@ namespace Brackethouse.GB
 				Serial.Step((ushort)(CPU.StepTicks << CPU.SpeedShift));
 				Input.CPUStep();
 				Graphics.Step(CPU.StepTicks);
+				Memory.StepDMA();
 				IO.StepTimerRegisters(CPU.StepTicks, CPU.SpeedShift);
 				Audio.Step(CPU.StepTicks);
 				if (Frame != Graphics.Frame)

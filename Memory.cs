@@ -33,6 +33,14 @@ namespace Brackethouse.GB
 		const ushort IORegistersStart = 0xFF00;
 		const ushort HighRAMStart = 0xFF80;
 		const ushort InterruptEnableRegister = 0xFFFF;
+
+		const ushort HDMA1Address = 0xff51;
+		const ushort HDMA2Address = 0xff52;
+		const ushort HDMA3Address = 0xff53;
+		const ushort HDMA4Address = 0xff54;
+		const ushort HDMA5Address = 0xff55;
+		bool HDMAInProgress = false;
+		bool HDMATransferThisBlank = false;
 		public Memory(Cartridge cart, PPU gfx, IORegisters io, GameBoyType mode)
 		{
 			Cart = cart;
@@ -48,6 +56,53 @@ namespace Brackethouse.GB
 		{
 			get => Read(i);
 			set => Write(i, value);
+		}
+		/// <summary>
+		/// HDMA takes time.
+		/// </summary>
+		public void StepDMA()
+		{
+			if (!HDMAInProgress)
+			{
+				return;
+			}
+			bool isHBlank = Graphics.Mode == PPUMode.HBlank;
+			if (!isHBlank || HDMATransferThisBlank)
+			{
+				return;
+			}
+			ushort src = (byte)(IO[HDMA1Address] << 8 + IO[HDMA2Address]);
+			ushort dest = (byte)(IO[HDMA3Address] << 8 + IO[HDMA4Address]);
+			const ushort srcMask = 0xfff0;
+			src &= srcMask;
+			const ushort destMask = 0x1ff0;
+			const ushort destStart = 0x8000;
+			dest &= destMask;
+			dest += destStart;
+
+			ushort length = IO[HDMA5Address];
+			const byte lengthMask = 0x7f;
+			length &= lengthMask;
+			length++;
+			length *= 0x10;
+			const ushort HDMAStepSize = 0x10;
+			for (ushort i = 0; i < HDMAStepSize; i++)
+			{
+				ushort s = src;
+				s += length;
+				s -= i;
+				s--;
+				ushort d = dest;
+				d += length;
+				d -= i;
+				d--;
+				this[d] = this[s];
+			}
+			HDMATransferThisBlank = true;
+			byte hdmabyte = IO[HDMA5Address];
+			hdmabyte--;
+			HDMAInProgress = hdmabyte != 0xff;
+			IO[HDMA5Address] = hdmabyte;
 		}
 		/// <summary>
 		/// Read from memory. For use by CPU.
@@ -125,6 +180,11 @@ namespace Brackethouse.GB
 				{
 					OAM_DMA(value);
 				}
+				else if (address == HDMA5Address
+					&& Mode == GameBoyType.GameBoyColor)
+				{
+					StartHDMA();
+				}
 				return;
 			}
 			if (AddressIsHRAM(uadr))
@@ -142,6 +202,50 @@ namespace Brackethouse.GB
 				return;
 			}
 			WorkRAM[WRAMIndex(uadr)] = value;
+		}
+		/// <summary>
+		/// Do this dumb things where CGB copies to VRAM.
+		/// </summary>
+		public void StartHDMA()
+		{
+			// https://gbdev.io/pandocs/CGB_Registers.html#lcd-vram-dma-transfers
+			byte hdma = IO[HDMA5Address];
+			const byte lengthMask = 0x7f;
+			byte bit7 = 0x80;
+			bool hblank = (hdma & bit7) != 0;
+
+			if (!hblank)
+			{
+				ushort src = (byte)(IO[HDMA1Address] << 8 + IO[HDMA2Address]);
+				ushort dest = (byte)(IO[HDMA3Address] << 8 + IO[HDMA4Address]);
+				const ushort srcMask = 0xfff0;
+				src &= srcMask;
+				const ushort destMask = 0x1ff0;
+				const ushort destStart = 0x8000;
+				dest &= destMask;
+				dest += destStart;
+
+				ushort length = hdma;
+				length &= lengthMask;
+				length++;
+				length *= 0x10;
+				// Fuck it, I'm cheating and doing it all at once.
+				for (ushort i = 0; i < length; i++)
+				{
+					ushort s = src;
+					s += i;
+					ushort d = dest;
+					d += i;
+					this[d] = this[s];
+				}
+				IO[HDMA5Address] = 0xff;
+				HDMAInProgress = false;
+				return;
+			}
+			// Turn on HBlank DMA.
+			IO[HDMA5Address] &= lengthMask;
+			HDMAInProgress = true;
+			HDMATransferThisBlank = Graphics.Mode == PPUMode.HBlank;
 		}
 		/// <summary>
 		/// Whether an address is High RAM
