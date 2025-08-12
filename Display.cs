@@ -29,10 +29,14 @@ namespace Brackethouse.GB
 			byte r = (byte)(data & 0x1f);
 			byte g = (byte)((data >> 5) & 0x1f);
 			byte b = (byte)((data >> 10) & 0x1f);
-			r <<= 3;
-			g <<= 3;
-			b <<= 3;
+			r = b5Tob8(r);
+			g = b5Tob8(g);
+			b = b5Tob8(b);
 			return new Color(r, g, b);
+		}
+		static byte b5Tob8(byte b)
+		{
+			return (byte)((b << 3) | ((b >> 2) & 0b111));
 		}
 	}
 	class SDLDisplay : Display
