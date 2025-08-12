@@ -225,8 +225,8 @@ namespace Brackethouse.GB
 					byte bitMask = (byte)(1 << tileX);
 					ushort byte1 = (ushort)(tileStart + tileY * 2);
 					ushort byte2 = (ushort)(byte1 + 1);
-					byte newpixel = (byte)((SelfReadVRAM(byte1) & bitMask) >> tileX);
-					newpixel |= (byte)(((SelfReadVRAM(byte2) & bitMask) >> tileX) << 1);
+					byte newpixel = (byte)((SelfReadVRAM(byte1 + bank * VRAMSize) & bitMask) >> tileX);
+					newpixel |= (byte)(((SelfReadVRAM(byte2 + bank * VRAMSize) & bitMask) >> tileX) << 1);
 					if (newpixel != 0)
 					{
 						pixelIndex = new ColorIndex(newpixel, palet, Layer.Object, priority != 0);
