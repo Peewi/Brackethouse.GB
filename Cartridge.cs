@@ -60,6 +60,7 @@ namespace Brackethouse.GB
 		readonly byte[] ROM;
 		readonly byte[] RAM;
 		readonly bool Battery = false;
+		readonly bool Rumble = false;
 		int ROMBankSelect = 1;
 		bool RAMEnable = false;
 		int RAMBankSelect = 0;
@@ -137,6 +138,9 @@ namespace Brackethouse.GB
 				ReadHandler = MBC5Read;
 				Battery = Type == CartridgeType.MBC5_RAM_BATTERY
 					|| Type == CartridgeType.MBC5_RUMBLE_RAM_BATTERY;
+				Rumble = Type == CartridgeType.MBC5_RUMBLE
+				|| Type == CartridgeType.MBC5_RUMBLE_RAM
+				|| Type == CartridgeType.MBC5_RUMBLE_RAM_BATTERY;
 			}
 			else if (Type == CartridgeType.MBC6)
 			{
@@ -145,6 +149,7 @@ namespace Brackethouse.GB
 			else if (Type == CartridgeType.MBC7_SENSOR_RUMBLE_RAM_BATTERY)
 			{
 				Battery = true;
+				Rumble = true;
 				throw new NotImplementedException();
 			}
 			for (int i = 0x0134; i < 0x0144; i++)
@@ -528,10 +533,18 @@ namespace Brackethouse.GB
 				ROMBankSelect |= (value & 0x01) << 8;
 				return;
 			}
-			if (address < 0x6000)
+			if (address < 0x6000 && RAMBankCount > 0)
 			{
 				// Select RAM bank. Rumble not implemented.
+				if (Rumble)
+				{
+					const byte bit3 = 0x08;
+					bool rumbling = (value & bit3) != 0;
+					// TODO: actually rumble.
+				}
 				RAMBankSelect = value;
+				RAMBankSelect &= 0x0f;
+				RAMBankSelect = Math.Min(RAMBankSelect, RAMBankCount - 1);
 				return;
 			}
 			if (address >= ExternalRAMStartAddress && address <= 0xbfff)
