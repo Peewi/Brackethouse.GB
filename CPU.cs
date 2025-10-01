@@ -34,7 +34,7 @@ namespace Brackethouse.GB
 		HalfCarry = 1 << 5,
 		Carry = 1 << 4,
 	}
-	class CPU
+	public class CPU
 	{
 		delegate void Operation();
 		/// <summary>
@@ -47,7 +47,7 @@ namespace Brackethouse.GB
 		readonly Operation[] CBCodes = new Operation[256];
 		readonly byte[] OpCodeCycles = new byte[256];
 		readonly byte[] CBCodeCycles = new byte[256];
-		readonly Memory Memory;
+		readonly IMemory Memory;
 		readonly CPURegister Registers = new();
 		/// <summary>
 		/// Whether interrupts can be serviced
@@ -91,7 +91,7 @@ namespace Brackethouse.GB
 		/// </summary>
 		public int SpeedShift { get; private set; } = 0;
 
-		public CPU(Memory mem, GameBoyType mode)
+		public CPU(IMemory mem, GameBoyType mode)
 		{
 			Memory = mem;
 			CPUMode = mode;

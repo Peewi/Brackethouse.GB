@@ -96,7 +96,7 @@ namespace Brackethouse.GB
 			Cart.SaveRAM(savePath);
 		}
 	}
-	enum GameBoyType
+	public enum GameBoyType
 	{
 		Auto = -1,
 		GameBoy = 0,

@@ -6,7 +6,33 @@ using System.Threading.Tasks;
 
 namespace Brackethouse.GB
 {
-	class Memory
+	public interface IMemory
+	{
+		public byte Read(int address);
+		public void Write(int address, byte value);
+		public abstract Byte this[int i] { get; set; }
+	}
+	/// <summary>
+	/// Simplified memory, for testing.
+	/// </summary>
+	public class FlatMemory : IMemory
+	{
+		byte[] RAM = new byte[1 << 16];
+		public byte Read(int address)
+		{
+			return RAM[address];
+		}
+		public void Write(int address, byte value)
+		{
+			RAM[address] = value;
+		}
+		public Byte this[int i]
+		{
+			get => Read(i);
+			set => Write(i, value);
+		}
+	}
+	class Memory : IMemory
 	{
 		const int WRAMBankSize = 0x1000;
 		const int HRAMSize = 0x80;
@@ -173,7 +199,7 @@ namespace Brackethouse.GB
 				if (address == WRAMBankSwitchAddress && Mode == GameBoyType.GameBoyColor)
 				{
 					int newBank = value & 0x07;
-					newBank = Math.Clamp(newBank, 1, 8);
+					newBank = Math.Max(newBank, 1);
 					WRAMBank = newBank;
 				}
 				else if (address == IORegisters.OAMDMAAddress)
