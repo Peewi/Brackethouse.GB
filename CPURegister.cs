@@ -54,6 +54,35 @@ namespace Brackethouse.GB
 			get => GetFlag(flag);
 			set => SetFlag(flag, value);
 		}
+		/// <summary>
+		/// Set the registers to a specific state.
+		/// </summary>
+		/// <param name="state">State struct</param>
+		public void SetState(CPURegisterState state)
+		{
+			this[R16.AF] = state.AF;
+			this[R16.BC] = state.BC;
+			this[R16.DE] = state.DE;
+			this[R16.HL] = state.HL;
+			this[R16.PC] = state.PC;
+			this[R16.SP] = state.SP;
+		}
+		/// <summary>
+		/// Get the current register state, in a struct
+		/// </summary>
+		/// <returns>State struct.</returns>
+		public CPURegisterState GetState()
+		{
+			return new CPURegisterState()
+			{
+				AF = this[R16.AF],
+				BC = this[R16.BC],
+				DE = this[R16.DE],
+				HL = this[R16.HL],
+				PC = this[R16.PC],
+				SP = this[R16.SP],
+			};
+		}
 
 		/// <summary>
 		/// Get a byte value from the 16-bit registers

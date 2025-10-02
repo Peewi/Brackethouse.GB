@@ -98,18 +98,39 @@ namespace Brackethouse.GB
 			Init();
 			//Console.WriteLine($"Test register result: {TestRegisters()}");
 		}
-
+		public CPU(IMemory mem, GameBoyType mode, CPURegisterState state) : this(mem, mode)
+		{
+			SetState(state);
+		}
+		/// <summary>
+		/// Set the registers to a specific state.
+		/// </summary>
+		/// <param name="state">State struct</param>
+		/// <remarks>This does not currently include interrupt state. Used to run Single Step Tests.</remarks>
+		public void SetState(CPURegisterState state)
+		{
+			Registers.SetState(state);
+		}
+		/// <summary>
+		/// Get the current register state, in a struct
+		/// </summary>
+		/// <returns>State struct.</returns>
+		/// <remarks>This does not currently include interrupt state. Used to run Single Step Tests.</remarks>
+		public CPURegisterState GetState()
+		{
+			return Registers.GetState();
+		}
 		byte Immediate8()
 		{
 			PCAdvance++;
-			LastReadByte = Memory.Read(Registers[R16.PC] + 1);
+			LastReadByte = Memory.Read((ushort)(Registers[R16.PC] + 1));
 			return LastReadByte;
 		}
 		ushort Immediate16()
 		{
 			PCAdvance += 2;
-			byte byte1 = Memory.Read(Registers[R16.PC] + 1);
-			byte byte2 = Memory.Read(Registers[R16.PC] + 2);
+			byte byte1 = Memory.Read((ushort)(Registers[R16.PC] + 1));
+			byte byte2 = Memory.Read((ushort)(Registers[R16.PC] + 2));
 			LastReadWord = (ushort)(byte1 + (byte2 << 8));
 			return LastReadWord;
 		}
@@ -2272,6 +2293,7 @@ namespace Brackethouse.GB
 			bool switchArmed = (Memory[speedAddress] & 0x01) != 0;
 			if (switchArmed)
 			{
+				PCAdvance++;
 				DoubleSpeed = !DoubleSpeed;
 				SpeedShift = (SpeedShift + 1) % 2;
 				Memory[speedAddress] = (byte)(SpeedShift << 7);
